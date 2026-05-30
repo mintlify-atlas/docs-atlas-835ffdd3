@@ -1,0 +1,135 @@
+---
+title: "Displaying Active Weather Alerts"
+sidebarTitle: "Alerts"
+description: "Use GodotNWS to fetch active NWS weather alerts for the configured location, with severity, urgency, timeline, and descriptive message text."
+---
+
+The NWS issues weather alerts to warn the public about hazardous conditions — everything from a Tornado Warning to a Winter Storm Watch to a Dense Fog Advisory. GodotNWS fetches all **active** alerts for the county zone associated with your configured location and returns them as an array of typed `Alert` resources.
+
+<Note>
+  Location setup must complete before calling this method. See the [Location Setup](/guides/location-setup) guide and wait for `location_setup_complete`.
+</Note>
+
+## Fetching Alerts
+
+Call `Nws.fetch_alerts()`. When the NWS responds, the `alerts_fetched` signal fires with an `Array[Alert]`. If there are no active alerts, the array will be empty — always handle that case gracefully.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.alerts_fetched.connect(_on_alerts)
+    Nws.fetch_alerts()
+
+func _on_alerts(alerts: Array[Alert]) -> void:
+    if alerts.is_empty():
+        print("No active alerts for this area.")
+        return
+
+    for A in alerts:
+        # Skip test and exercise alerts in production
+        if A.status != "Actual":
+            continue
+
+        print("=== %s ===" % A.event)
+        print("Severity:  %s | Urgency: %s | Certainty: %s" % [
+            A.severity, A.urgency, A.certainty
+        ])
+        print("Headline:  %s" % A.headline)
+        print("Issued by: %s (%s)" % [A.senderName, A.sender])
+
+        if A.description != "":
+            print("Details:\n%s" % A.description)
+        if A.instruction != "":
+            print("Instructions:\n%s" % A.instruction)
+        if A.response != "":
+            print("Recommended response: %s" % A.response)
+
+        # Show when the threat begins and expires
+        print("Onset:   %d-%02d-%02d %02d:%02d" % [
+            A.onset["year"], A.onset["month"], A.onset["day"],
+            A.onset["hour"], A.onset["minute"]
+        ])
+        print("Expires: %d-%02d-%02d %02d:%02d" % [
+            A.expires["year"], A.expires["month"], A.expires["day"],
+            A.expires["hour"], A.expires["minute"]
+        ])
+```
+
+## Alert Time Fields
+
+All time fields on an `Alert` are **Godot datetime dictionaries** produced by `Time.get_datetime_dict_from_datetime_string()`. Each dictionary contains these keys:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `year` | `int` | Four-digit year |
+| `month` | `int` | Month (1–12) |
+| `day` | `int` | Day of the month (1–31) |
+| `hour` | `int` | Hour in 24-hour format (0–23) |
+| `minute` | `int` | Minute (0–59) |
+| `second` | `int` | Second (0–59) |
+| `weekday` | `int` | Day of week (0 = Sunday … 6 = Saturday) |
+| `dst` | `bool` | Whether daylight saving time was active |
+
+```gdscript
+# Format a datetime dict into a readable string
+func format_time(dt: Dictionary) -> String:
+    return "%d-%02d-%02d at %02d:%02d" % [
+        dt["year"], dt["month"], dt["day"], dt["hour"], dt["minute"]
+    ]
+
+print("Alert effective: ", format_time(A.effective))
+```
+
+<Note>
+  The `ends` field may be empty (`{}`) — NWS does not always provide a hard end time. Always check `A.ends.is_empty()` before reading it. `expires` is always populated.
+</Note>
+
+## Alert Supersession
+
+Alerts are sometimes updated or cancelled by newer alerts. GodotNWS exposes the full supersession chain through two fields:
+
+- **`references`** — an `Array[String]` containing the IDs of earlier alerts that this alert updates or supersedes. If a player has already displayed one of those alerts, this alert is the newer version.
+- **`replacedBy`** — the `id` of the alert that replaced this one, if applicable. Check this field to know whether the alert you have is still current.
+- **`replacedAt`** — a `String` containing the time this alert was replaced (as returned by the NWS API).
+
+```gdscript
+# Check if an alert has been superseded
+if A.replacedBy != "":
+    print("Alert %s was replaced by %s at %s" % [A.id, A.replacedBy, A.replacedAt])
+
+# Show what earlier alerts this one updates
+if not A.references.is_empty():
+    print("This alert updates: ", ", ".join(A.references))
+```
+
+## `Alert` Fields Reference
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `raw` | `Dictionary` | Complete raw JSON properties from the NWS API. |
+| `id` | `String` | Unique NWS identifier for this alert. |
+| `event` | `String` | Alert type title, e.g. `"Tornado Warning"`, `"Flood Watch"`. |
+| `status` | `String` | `"Actual"` for real alerts; `"Test"` or `"Exercise"` otherwise. |
+| `messageType` | `String` | `"Alert"`, `"Update"`, or `"Cancel"`. |
+| `category` | `String` | Broad category, e.g. `"Met"` (meteorological). |
+| `severity` | `String` | One of `"Extreme"`, `"Severe"`, `"Moderate"`, `"Minor"`, `"Unknown"`. |
+| `certainty` | `String` | One of `"Observed"`, `"Likely"`, `"Possible"`, `"Unlikely"`, `"Unknown"`. |
+| `urgency` | `String` | One of `"Immediate"`, `"Expected"`, `"Future"`, `"Past"`, `"Unknown"`. |
+| `sender` | `String` | Sending organization's email address. |
+| `senderName` | `String` | Human-readable name of the issuing office, e.g. `"NWS Philadelphia PA"`. |
+| `headline` | `String` | Short summary sentence. |
+| `capitalHeadline` | `String` | NWS `NWSheadline` parameter — slightly different phrasing, relevant in some contexts. |
+| `description` | `String` | Full alert body text describing the hazard in detail. |
+| `instruction` | `String` | What people should do in response. May be empty. |
+| `response` | `String` | Short recommended action, e.g. `"Shelter"`, `"Evacuate"`, `"Monitor"`. |
+| `sent` | `Dictionary` | When the alert message was transmitted (datetime dict). |
+| `effective` | `Dictionary` | When the alert became effective (datetime dict). |
+| `onset` | `Dictionary` | When the hazardous conditions are expected to begin (datetime dict). |
+| `expires` | `Dictionary` | When the alert expires (datetime dict). Always present. |
+| `ends` | `Dictionary` | Hard end time for the event, if provided (datetime dict). May be `{}`. |
+| `references` | `Array[String]` | IDs of previous alerts this one updates. Empty if none. |
+| `replacedBy` | `String` | ID of the alert that replaced this one. Empty if current. |
+| `replacedAt` | `String` | Raw timestamp string of when replacement occurred. |
+
+<Tip>
+  Filter alerts by `A.status == "Actual"` to avoid surfacing test or exercise alerts to players. The NWS does occasionally issue test messages that would look alarming to users who don't know what they are.
+</Tip>

@@ -1,0 +1,70 @@
+---
+title: "GodotNWS: Real Weather Data in Godot 4"
+sidebarTitle: "Introduction"
+description: "GodotNWS is a Godot 4 plugin that wraps the U.S. National Weather Service API, giving your game access to live forecasts, alerts, radar, and observations — no API key needed."
+---
+
+GodotNWS is a GDScript plugin for Godot 4.1+ that connects your game directly to the U.S. National Weather Service (NWS) API. With a few function calls you can pull live weather forecasts, active alerts, radar imagery, and current station observations into any scene — all without registering for an API key. Whether you're building a simulation, adding dynamic weather events driven by real-world conditions, or just want to show players the actual forecast for their region, GodotNWS handles the HTTP requests and data parsing so you don't have to.
+
+## Key Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Daily Forecast" icon="sun">
+    Fetch a multi-day forecast broken into named periods (e.g., "Monday Night"), each with temperature, wind, precipitation chance, and a detailed description.
+  </Card>
+  <Card title="Hourly Forecast" icon="clock">
+    Retrieve hour-by-hour conditions including dewpoint, relative humidity, wind speed and direction, and short forecast text.
+  </Card>
+  <Card title="Current Observations" icon="thermometer">
+    Get the latest readings from the nearest observation station: temperature, wind, pressure, visibility, heat index, wind chill, cloud layers, and more.
+  </Card>
+  <Card title="Active Weather Alerts" icon="triangle-exclamation">
+    Receive active NWS alerts for the configured location — tornado warnings, flood watches, winter storm advisories — with full severity, urgency, and instruction text.
+  </Card>
+  <Card title="Radar GIFs" icon="radar">
+    Download the animated base reflectivity or base velocity radar loop for the nearest radar station as a raw GIF buffer.
+  </Card>
+  <Card title="Graphicast Images" icon="image">
+    Fetch graphicast forecast images (indexed 1–n) produced by the local NWS forecast office, returned as `ImageTexture` objects ready to display.
+  </Card>
+  <Card title="Weather Stories" icon="newspaper">
+    Pull illustrated weather stories from the local forecast office, including title, description, priority, and a downloaded PNG image.
+  </Card>
+  <Card title="Radio Broadcast" icon="radio">
+    Retrieve the text of the current NWS radio broadcast for the configured coordinates, parsed into individual forecast paragraphs.
+  </Card>
+  <Card title="Drought Monitor" icon="droplet-slash">
+    Download the current U.S. Drought Monitor PNG map as an `ImageTexture`.
+  </Card>
+  <Card title="US Warning Map" icon="map">
+    Fetch the national NWS active-warnings overview map as an `ImageTexture`.
+  </Card>
+  <Card title="Forecast Charts" icon="chart-line">
+    Retrieve Weather Prediction Center forecast charts (indices 1–3) as GIF buffers for display or processing.
+  </Card>
+</CardGroup>
+
+## How the Plugin Works
+
+GodotNWS registers a global autoload singleton called `Nws` the moment you enable the plugin in your project settings. Because it is an autoload, the `Nws` node is available in every scene and every script without any extra `preload` or `get_node` calls.
+
+The API is entirely **signal-driven and asynchronous**. Every fetch method spawns an internal `HTTPRequest` node, makes the network call on a background thread, parses the response, and then emits a typed signal carrying the result. Your code connects to those signals and reacts when the data arrives — there is no blocking, no polling loop, and no coroutine management required.
+
+The typical flow looks like this:
+
+1. Connect to `Nws.location_setup_complete`.
+2. Call `Nws.setup(latitude, longitude)` — or `Nws.setup_ip()` to auto-detect from the user's IP address.
+3. Inside the signal handler, connect to the relevant result signal (e.g., `Nws.forecast_fetched`) and call the corresponding fetch method (e.g., `Nws.fetch_forecast(false)`).
+4. Handle the result in your signal callback.
+
+The `Nws.SetUp` property is `false` until setup completes. All fetch methods call an internal `Check()` guard that will raise an assertion error if you attempt a fetch before a location has been configured.
+
+<Note>
+  **Important disclaimers before you ship:**
+
+  - GodotNWS is **not affiliated with or endorsed by the National Weather Service** or any U.S. government agency.
+  - Some fields on forecasts, alerts, and observations **may be omitted by the NWS API itself**. This is expected behavior and is not a plugin bug.
+  - The NWS API only covers **locations within the United States**. Coordinates outside US territory will fail during the setup phase.
+</Note>
+
+Ready to add GodotNWS to your project? Head to the [Installation guide](/installation) to get set up in minutes.

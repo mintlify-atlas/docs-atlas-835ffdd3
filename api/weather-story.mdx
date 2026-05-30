@@ -1,0 +1,101 @@
+---
+title: "WeatherStory: NWS Weather Story Data Class"
+sidebarTitle: "WeatherStory"
+description: "WeatherStory holds an NWS forecast office weather story with title, description, image, and timing, delivered via the weather_stories_fetched signal."
+---
+
+`WeatherStory` is a typed `Resource` representing a single weather story published by the local NWS forecast office. Weather stories are short, illustrated narratives that offices use to highlight notable weather events or patterns for their region — for example, an upcoming heat wave, a prolonged drought, or a severe weather outlook. An array of these resources is emitted by the `weather_stories_fetched` signal after calling `Nws.fetch_weather_stories()`. Stories are always delivered with their images already loaded; there is no flag to skip image fetching.
+
+```gdscript
+class_name WeatherStory
+extends Resource
+```
+
+<Note>
+  The `weather_stories_fetched` signal is emitted only after **all** story images have finished downloading. If the local NWS office has no active stories, the signal is not emitted at all — add a timeout or fallback in your UI if stories are optional content.
+</Note>
+
+## Fields
+
+<ResponseField name="title" type="String">
+  The headline title of the weather story as written by the NWS office (e.g. `"Heat Advisory This Weekend"` or `"Flash Flood Threat Tuesday"`). Suitable for use as a card heading.
+</ResponseField>
+
+<ResponseField name="description" type="String">
+  A prose explanation of the weather story, providing context and detail beyond the title. Suitable for display in an expanded story view.
+</ResponseField>
+
+<ResponseField name="altText" type="String">
+  Accessibility alt text describing the story image. **May not always be present** — check that this string is non-empty before using it. When available, use it as the `alt` attribute or tooltip for the story image.
+</ResponseField>
+
+<ResponseField name="priority" type="bool">
+  `true` if the NWS office has flagged this story as a priority item. Priority stories typically represent imminent or high-impact weather events and should be surfaced prominently in the UI.
+</ResponseField>
+
+<ResponseField name="order" type="int">
+  The display order index assigned by the NWS office. Use this to sort stories into the intended sequence when iterating the array (lower values first).
+</ResponseField>
+
+<ResponseField name="image" type="ImageTexture">
+  The loaded `ImageTexture` for this story's illustration or graphic. Always populated — the signal is not emitted until all images have been fetched. Use this directly as a texture in a `TextureRect` or `Sprite2D`.
+</ResponseField>
+
+<ResponseField name="downloadUrl" type="String">
+  The direct URL to the story image PNG. Useful if you want to re-download the image at a later time or display it in a web view.
+</ResponseField>
+
+<ResponseField name="startTime" type="Dictionary">
+  A Godot time dictionary for when this story's validity period begins. Contains keys: `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday`, `dst`. Produced by `Time.get_datetime_dict_from_datetime_string()`.
+</ResponseField>
+
+<ResponseField name="endTime" type="Dictionary">
+  A Godot time dictionary for when this story's validity period ends, in the same format as `startTime`. Stories past their `endTime` will no longer be served by the NWS API.
+</ResponseField>
+
+<ResponseField name="UpdateTime" type="Dictionary">
+  A Godot time dictionary for when the story was last updated by the NWS office, in the same format as `startTime`. Note the capital `U` in the field name — this matches the GDScript declaration exactly.
+</ResponseField>
+
+## Usage example
+
+```gdscript
+func _ready():
+    Nws.setup(33.7490, -84.3880)
+    Nws.location_setup_complete.connect(_on_location_ready)
+
+func _on_location_ready():
+    Nws.weather_stories_fetched.connect(_on_stories)
+    Nws.fetch_weather_stories()
+
+func _on_stories(stories: Array[WeatherStory]):
+    # Sort by the office's intended display order
+    stories.sort_custom(func(a, b): return a.order < b.order)
+
+    for story in stories:
+        print("Story: ", story.title)
+        print("  ", story.description)
+
+        # Highlight priority stories
+        if story.priority:
+            print("  *** PRIORITY STORY ***")
+
+        var updated = "%04d-%02d-%02d" % [
+            story.UpdateTime["year"],
+            story.UpdateTime["month"],
+            story.UpdateTime["day"]
+        ]
+        print("  Last updated: ", updated)
+
+        # Display the image on a TextureRect node
+        var card = StoryCard.instantiate()
+        card.get_node("Title").text = story.title
+        card.get_node("Image").texture = story.image
+        if story.altText != "":
+            card.get_node("Image").tooltip_text = story.altText
+        $StoriesContainer.add_child(card)
+```
+
+<Tip>
+  Check `story.priority` first and display priority stories at the top of your layout, regardless of `order`. This mirrors how NWS offices intend priority content to be surfaced to users.
+</Tip>

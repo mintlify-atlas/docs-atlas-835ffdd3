@@ -1,0 +1,107 @@
+---
+title: "HourlyForecastPeriod: Hourly Forecast Data Class"
+sidebarTitle: "HourlyForecastPeriod"
+description: "HourlyForecastPeriod holds one hour of forecast data including dewpoint and relative humidity, delivered via hourly_forecast_fetched from the Nws singleton."
+---
+
+`HourlyForecastPeriod` is a typed `Resource` representing a single one-hour slot in the NWS hourly forecast. An array of these resources is emitted by the `hourly_forecast_fetched` signal after calling `Nws.fetch_hourly_forecast()`. Compared to `ForecastPeriod`, hourly periods do not have a named label but add `dewpoint` and `relativeHumidity` fields that are not present in the daily forecast. The NWS typically returns up to 156 hourly periods (about 6.5 days ahead).
+
+```gdscript
+class_name HourlyForecastPeriod
+extends Resource
+```
+
+<Note>
+  Pass `fetch_images: true` to `fetch_hourly_forecast()` if you need the `icon` field populated. When `false`, `icon` is `null` and only `iconUrl` is set. For long timelines, fetching images for all 156 periods can be expensive — consider loading icons on demand using `iconUrl` instead.
+</Note>
+
+## Fields
+
+<ResponseField name="raw" type="Dictionary">
+  The complete, unmodified JSON object for this hour as returned by the NWS API. Useful for accessing any fields not explicitly mapped by `HourlyForecastPeriod`.
+</ResponseField>
+
+<ResponseField name="number" type="int">
+  The sequential index of this period within the hourly forecast. `1` is the first (soonest) hour.
+</ResponseField>
+
+<ResponseField name="startTime" type="Dictionary">
+  A Godot time dictionary produced by `Time.get_datetime_dict_from_datetime_string()`. Contains keys: `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday`, `dst`. Represents the start of the one-hour interval.
+</ResponseField>
+
+<ResponseField name="endTime" type="Dictionary">
+  The end of this one-hour interval, in the same Godot time dictionary format as `startTime`. Typically exactly one hour after `startTime`.
+</ResponseField>
+
+<ResponseField name="isDay" type="bool">
+  `true` if this hour falls within daytime, `false` if it falls overnight. Useful for selecting day or night icon variants and UI themes.
+</ResponseField>
+
+<ResponseField name="temperature" type="float">
+  The forecast temperature for this hour. The unit is determined by `temperatureUnit`.
+</ResponseField>
+
+<ResponseField name="temperatureUnit" type="String">
+  The unit for `temperature`. Either `"F"` (Fahrenheit) or `"C"` (Celsius).
+</ResponseField>
+
+<ResponseField name="precipitationChance" type="float">
+  The probability of precipitation during this hour, expressed as a percentage from `0` to `100`.
+</ResponseField>
+
+<ResponseField name="dewpoint" type="float">
+  The dewpoint temperature for this hour in degrees Celsius. Higher dewpoints indicate more moisture in the air and greater perceived humidity.
+</ResponseField>
+
+<ResponseField name="relativeHumidity" type="float">
+  The relative humidity for this hour, expressed as a percentage from `0` to `100`.
+</ResponseField>
+
+<ResponseField name="windSpeed" type="float">
+  The forecast wind speed for this hour. Returned as a raw value from the NWS API.
+</ResponseField>
+
+<ResponseField name="windDirection" type="float">
+  The forecast wind direction in degrees (0° = North, 90° = East, 180° = South, 270° = West).
+</ResponseField>
+
+<ResponseField name="icon" type="ImageTexture">
+  A loaded `ImageTexture` of the NWS weather icon for this hour. `null` unless `fetch_images: true` was passed to `fetch_hourly_forecast()`.
+</ResponseField>
+
+<ResponseField name="iconUrl" type="String">
+  The direct URL to the NWS weather icon PNG for this hour. Always populated regardless of the `fetch_images` flag.
+</ResponseField>
+
+<ResponseField name="shortForecast" type="String">
+  A brief description of the forecast conditions for this hour, such as `"Mostly Clear"` or `"Light Rain"`.
+</ResponseField>
+
+<ResponseField name="detailedForecast" type="String">
+  A prose description of conditions for this hour. For hourly periods this field is often an empty string, as the NWS typically populates it only for daily periods.
+</ResponseField>
+
+## Usage example
+
+```gdscript
+func _ready():
+    Nws.setup(40.7128, -74.0060)
+    Nws.location_setup_complete.connect(_on_location_ready)
+
+func _on_location_ready():
+    Nws.hourly_forecast_fetched.connect(_on_hourly)
+    Nws.fetch_hourly_forecast(false)  # skip image loading for performance
+
+func _on_hourly(periods: Array[HourlyForecastPeriod]):
+    # Show the next 12 hours
+    for period in periods.slice(0, 12):
+        var hour_label = "%02d:%02d" % [period.startTime["hour"], period.startTime["minute"]]
+        print(hour_label, " — ", period.temperature, "°", period.temperatureUnit,
+              "  RH: ", period.relativeHumidity, "%",
+              "  Dewpoint: ", period.dewpoint, "°C",
+              "  ", period.shortForecast)
+```
+
+<Tip>
+  Use `dewpoint` and `relativeHumidity` together to display a comfort index or "feels like" indicator in your weather UI.
+</Tip>

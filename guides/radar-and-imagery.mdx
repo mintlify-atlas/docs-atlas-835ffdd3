@@ -1,0 +1,206 @@
+---
+title: "Radar GIFs, Graphicasts, and Weather Images"
+sidebarTitle: "Radar & Imagery"
+description: "Fetch animated radar loops, NWS graphicast images, forecast charts, the U.S. warning map, and the drought monitor using GodotNWS."
+---
+
+Beyond text forecasts, GodotNWS can retrieve several types of weather imagery — animated radar loops, local office graphicast images, national forecast charts, a U.S. active-warning map, the drought monitor, and narrative weather stories with accompanying graphics. Each fetch method emits its own signal when the data arrives.
+
+<Note>
+  Location setup must complete before calling any of these methods. See the [Location Setup](/guides/location-setup) guide and wait for `location_setup_complete`.
+</Note>
+
+---
+
+## Animated Radar GIF
+
+`fetch_radar_gif(velocity: bool)` fetches the looping radar GIF for the NWS radar station nearest to your configured location. The signal `radar_fetched` fires with a raw `PackedByteArray` containing the GIF file bytes.
+
+| `velocity` value | Radar product |
+|-----------------|---------------|
+| `false` | Base reflectivity (precipitation intensity) |
+| `true` | Base velocity (wind motion toward/away from the radar) |
+
+<Warning>
+  `radar_fetched` returns a **raw `PackedByteArray`**, not an `ImageTexture`. Godot's built-in `Image` class does not support animated GIFs. You will need a GIF-rendering addon from the Asset Library to display the animation in your UI.
+</Warning>
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.radar_fetched.connect(_on_radar)
+    Nws.fetch_radar_gif(false)  # false = reflectivity, true = velocity
+
+func _on_radar(image_buffer: PackedByteArray) -> void:
+    if image_buffer.is_empty():
+        push_warning("Radar data unavailable.")
+        return
+
+    # Option A: Save to disk for inspection
+    var file = FileAccess.open("user://radar.gif", FileAccess.WRITE)
+    file.store_buffer(image_buffer)
+    file.close()
+    print("Radar GIF saved (%d bytes)" % image_buffer.size())
+
+    # Option B: Pass to a GIF-rendering addon
+    # $RadarDisplay.load_gif(image_buffer)
+```
+
+---
+
+## Graphicast Images
+
+NWS forecast offices publish **graphicast** images — locally-produced graphics that illustrate temperature, precipitation, or other forecast elements for the region. They are indexed starting at `0`.
+
+`fetch_graphicast(index: int)` fetches the PNG at the given index and emits `graphicast_fetched(image: ImageTexture, index: int, last_modified: String)`. The returned `ImageTexture` is ready to assign directly to a `TextureRect` or `Sprite2D`.
+
+The `last_modified` string comes from the HTTP `Last-Modified` response header and tells you when the image was last updated by the office.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.graphicast_fetched.connect(_on_graphicast)
+    # Fetch the first three graphicast images
+    Nws.fetch_graphicast(0)
+    Nws.fetch_graphicast(1)
+    Nws.fetch_graphicast(2)
+
+func _on_graphicast(image: ImageTexture, index: int, last_modified: String) -> void:
+    print("Graphicast %d received (last modified: %s)" % [index, last_modified])
+    match index:
+        0: $Graphicast0.texture = image
+        1: $Graphicast1.texture = image
+        2: $Graphicast2.texture = image
+```
+
+<Tip>
+  Not every forecast office publishes the same number of graphicast images. Start with index `0` and increment until the image comes back blank or the request fails.
+</Tip>
+
+---
+
+## Forecast Charts
+
+`fetch_forecast_chart(index: int)` fetches a national-scale forecast chart from NOAA's Weather Prediction Center. The `index` parameter accepts values **1, 2, or 3**, corresponding to different chart products. The signal `chart_fetched` fires with a raw `PackedByteArray` GIF.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.chart_fetched.connect(_on_chart)
+    Nws.fetch_forecast_chart(1)  # Chart index 1, 2, or 3
+
+func _on_chart(image_buffer: PackedByteArray) -> void:
+    print("Forecast chart received (%d bytes)" % image_buffer.size())
+
+    # Save the GIF for use with a GIF addon
+    var file = FileAccess.open("user://forecast_chart.gif", FileAccess.WRITE)
+    file.store_buffer(image_buffer)
+    file.close()
+```
+
+<Warning>
+  Like radar, `chart_fetched` returns a **raw `PackedByteArray`** GIF. A GIF-rendering addon is needed to display these animated charts in your scene.
+</Warning>
+
+---
+
+## U.S. Warning Map and Drought Monitor
+
+These two methods return fully-decoded `ImageTexture` objects — no GIF addon required.
+
+<CardGroup cols={2}>
+  <Card title="U.S. Warning Map" icon="triangle-exclamation">
+    Fetches a national map of all active NWS warnings and watches.
+
+    **Method:** `fetch_us_warning_map()`  
+    **Signal:** `us_map_fetched(image: ImageTexture)`
+  </Card>
+  <Card title="Drought Monitor" icon="droplet-slash">
+    Fetches the current U.S. Drought Monitor map.
+
+    **Method:** `fetch_drought_monitor()`  
+    **Signal:** `drought_fetched(image: ImageTexture)`
+  </Card>
+</CardGroup>
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.us_map_fetched.connect(_on_warning_map)
+    Nws.drought_fetched.connect(_on_drought)
+    Nws.fetch_us_warning_map()
+    Nws.fetch_drought_monitor()
+
+func _on_warning_map(image: ImageTexture) -> void:
+    $WarningMapDisplay.texture = image
+
+func _on_drought(image: ImageTexture) -> void:
+    $DroughtMapDisplay.texture = image
+```
+
+---
+
+## Weather Stories
+
+NWS forecast offices publish **weather stories** — short narratives paired with custom graphics that highlight the most significant weather concerns for the week. `fetch_weather_stories()` fetches all active stories for your location's office and emits `weather_stories_fetched(stories: Array[WeatherStory])` once all images have been downloaded.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.weather_stories_fetched.connect(_on_stories)
+    Nws.fetch_weather_stories()
+
+func _on_stories(stories: Array[WeatherStory]) -> void:
+    # Sort by display order
+    stories.sort_custom(func(a, b): return a.order < b.order)
+
+    for S in stories:
+        print("Story: %s (priority: %s)" % [S.title, S.priority])
+        print("  %s" % S.description)
+        if S.altText != "":
+            print("  Alt text: %s" % S.altText)
+        print("  Valid: %d-%02d-%02d to %d-%02d-%02d" % [
+            S.startTime["year"], S.startTime["month"], S.startTime["day"],
+            S.endTime["year"], S.endTime["month"], S.endTime["day"]
+        ])
+        if S.image:
+            $StoryImage.texture = S.image
+```
+
+### `WeatherStory` Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | `String` | Short story title, e.g. `"Heavy Rain Threat Thursday"`. |
+| `description` | `String` | Narrative text for the story. |
+| `altText` | `String` | Accessibility alt text for the image. May be empty. |
+| `image` | `ImageTexture` | Downloaded story graphic, always populated when the signal fires. |
+| `priority` | `bool` | `true` if the office flagged this as a priority story. |
+| `order` | `int` | Display order index. Sort by this for consistent presentation. |
+| `startTime` | `Dictionary` | When the story becomes valid (Godot datetime dict). |
+| `endTime` | `Dictionary` | When the story expires (Godot datetime dict). |
+| `UpdateTime` | `Dictionary` | When the story was last updated by the office (Godot datetime dict). |
+| `downloadUrl` | `String` | Source URL of the story image. |
+
+---
+
+## Radio Broadcast Text
+
+`fetch_radio_broadcast()` fetches the area's NWS radio broadcast script — the same text read on NOAA Weather Radio — and parses it into individual paragraphs. The signal `radio_broadcast_fetched` fires with an `Array[String]`, one entry per forecast period paragraph.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.radio_broadcast_fetched.connect(_on_radio)
+    Nws.fetch_radio_broadcast()
+
+func _on_radio(paragraphs: Array[String]) -> void:
+    if paragraphs.is_empty():
+        push_warning("Radio broadcast unavailable.")
+        return
+
+    var full_text = "\n\n".join(paragraphs)
+    $BroadcastLabel.text = full_text
+
+    # Or iterate period by period
+    for i in paragraphs.size():
+        print("Paragraph %d: %s" % [i + 1, paragraphs[i]])
+```
+
+<Tip>
+  Radio broadcast paragraphs are split by forecast period and begin with the period name (e.g. `"Tonight:"`, `"Wednesday:"`). This makes them easy to map onto your daily forecast display for a text-to-speech or "scrolling ticker" effect.
+</Tip>

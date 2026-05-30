@@ -1,0 +1,164 @@
+---
+title: "ObservationPacket: Current Conditions Data Class"
+sidebarTitle: "ObservationPacket"
+description: "ObservationPacket holds current weather station observations — temperature, wind, pressure, humidity, and more — delivered via the observations_fetched signal."
+---
+
+`ObservationPacket` is a typed `Resource` containing the latest surface observations from the NWS station nearest to the configured location. It is emitted as a single object (not an array) by the `observations_fetched` signal after calling `Nws.fetch_current_observations()`. Unlike forecast data, observations reflect what the station actually recorded at the time of the most recent report.
+
+```gdscript
+class_name ObservationPacket
+extends Resource
+```
+
+<Warning>
+  **All numeric fields use metric units.** Temperature, dewpoint, wind chill, and heat index are in **Celsius**. Wind speed and gust are in **m/s**. Pressure fields are in **Pascals**. Visibility is in **meters**. Precipitation fields are in **millimeters**. Cloud base height is in **meters**.
+</Warning>
+
+<Note>
+  Not all stations report every measurement. Fields for which the station did not report a value will be `0.0` (the GDScript default for `float`). Always check whether a value is meaningful before displaying it — for example, a `windChill` of `0.0` could mean no wind chill data was available, not that the wind chill is actually 0°C. The `raw` dictionary can be used to distinguish a genuine zero from a missing value.
+</Note>
+
+## Fields
+
+<ResponseField name="raw" type="Dictionary">
+  The complete, unmodified JSON properties object from the NWS observations API. Use this to access any measurement not explicitly mapped by `ObservationPacket`.
+</ResponseField>
+
+<ResponseField name="station" type="String">
+  The URL of the observation station that provided this data (e.g. `"https://api.weather.gov/stations/KAUS"`).
+</ResponseField>
+
+<ResponseField name="timestamp" type="String">
+  The ISO 8601 timestamp of the observation (e.g. `"2024-06-15T18:53:00+00:00"`). This is the time the measurement was recorded, not when it was fetched.
+</ResponseField>
+
+<ResponseField name="rawMessage" type="String">
+  The raw METAR string for this observation, if available (e.g. `"KAUS 151853Z 18012KT 10SM FEW050 32/18 A2990"`). Empty if the station does not issue METARs.
+</ResponseField>
+
+<ResponseField name="textDescription" type="String">
+  A short human-readable description of current conditions, such as `"Mostly Cloudy"` or `"Rain"`. Suitable for direct display.
+</ResponseField>
+
+<ResponseField name="icon" type="ImageTexture">
+  A loaded `ImageTexture` of the NWS conditions icon. `null` unless `fetch_icon: true` was passed to `fetch_current_observations()`.
+</ResponseField>
+
+<ResponseField name="iconUrl" type="String">
+  The direct URL to the NWS conditions icon PNG. Always populated when the station provides one, regardless of the `fetch_icon` flag.
+</ResponseField>
+
+<ResponseField name="presentWeather" type="String">
+  The first present weather phenomenon descriptor reported by the station (e.g. `"rain"`, `"fog"`, `"thunderstorm"`). Empty if no present weather was reported.
+</ResponseField>
+
+<ResponseField name="temperature" type="float">
+  The current air temperature in **Celsius**.
+</ResponseField>
+
+<ResponseField name="dewpoint" type="float">
+  The current dewpoint temperature in **Celsius**. `0.0` if not reported.
+</ResponseField>
+
+<ResponseField name="windDirection" type="float">
+  The wind direction in degrees (0° = North, 90° = East). `0.0` if winds are calm or not reported.
+</ResponseField>
+
+<ResponseField name="windSpeed" type="float">
+  The sustained wind speed in **m/s**. `0.0` if calm or not reported.
+</ResponseField>
+
+<ResponseField name="windGust" type="float">
+  The peak wind gust speed in **m/s**. `0.0` if no gusts were reported.
+</ResponseField>
+
+<ResponseField name="barometricPressure" type="float">
+  The station-level barometric pressure in **Pascals**. `0.0` if not reported. Divide by 100 to convert to hPa/mbar.
+</ResponseField>
+
+<ResponseField name="seaLevelPressure" type="float">
+  The sea-level adjusted pressure in **Pascals**. `0.0` if not reported. More comparable across stations at different elevations than `barometricPressure`.
+</ResponseField>
+
+<ResponseField name="visibility" type="float">
+  Horizontal visibility in **meters**. `0.0` if not reported. Divide by 1000 for kilometers, or multiply by `0.000621371` for miles.
+</ResponseField>
+
+<ResponseField name="maxTempLast24" type="float">
+  The maximum temperature recorded in the past 24 hours in **Celsius**. `0.0` if not reported.
+</ResponseField>
+
+<ResponseField name="minTempLast24" type="float">
+  The minimum temperature recorded in the past 24 hours in **Celsius**. `0.0` if not reported.
+</ResponseField>
+
+<ResponseField name="precipitationLastHour" type="float">
+  Precipitation accumulation in the past hour in **millimeters**. `0.0` if not reported or no precipitation occurred.
+</ResponseField>
+
+<ResponseField name="precipitationLast3Hours" type="float">
+  Precipitation accumulation over the past 3 hours in **millimeters**. `0.0` if not reported.
+</ResponseField>
+
+<ResponseField name="precipitationLast6Hours" type="float">
+  Precipitation accumulation over the past 6 hours in **millimeters**. `0.0` if not reported.
+</ResponseField>
+
+<ResponseField name="relativeHumidity" type="float">
+  The relative humidity as a percentage (`0`–`100`). `0.0` if not reported.
+</ResponseField>
+
+<ResponseField name="windChill" type="float">
+  The wind chill temperature in **Celsius**. Only meaningful when temperatures are below 10°C and winds are above 4.8 km/h. `0.0` if not reported or conditions don't produce wind chill.
+</ResponseField>
+
+<ResponseField name="heatIndex" type="float">
+  The heat index ("feels like") temperature in **Celsius**. Only meaningful at high temperatures and humidity. `0.0` if not reported or conditions don't produce a heat index.
+</ResponseField>
+
+<ResponseField name="cloudLayers" type="String">
+  The amount descriptor for the lowest reported cloud layer, such as `"FEW"`, `"SCT"` (scattered), `"BKN"` (broken), or `"OVC"` (overcast). Empty if no cloud data was reported.
+</ResponseField>
+
+<ResponseField name="baseCloudHeight" type="float">
+  The height of the base of the lowest cloud layer in **meters**. `0.0` if not reported.
+</ResponseField>
+
+## Usage example
+
+```gdscript
+func _ready():
+    Nws.setup(47.6062, -122.3321)
+    Nws.location_setup_complete.connect(_on_location_ready)
+
+func _on_location_ready():
+    Nws.observations_fetched.connect(_on_observations)
+    Nws.fetch_current_observations(true)  # true = load icon texture
+
+func _on_observations(obs: ObservationPacket):
+    if obs == null:
+        print("Observations unavailable for this location.")
+        return
+
+    # Convert Celsius to Fahrenheit for display
+    var temp_f = obs.temperature * 9.0 / 5.0 + 32.0
+    print("Conditions: ", obs.textDescription)
+    print("Temperature: %.1f°F (%.1f°C)" % [temp_f, obs.temperature])
+    print("Humidity: ", obs.relativeHumidity, "%")
+    print("Wind: ", obs.windSpeed, " m/s from ", obs.windDirection, "°")
+
+    if obs.windGust > 0.0:
+        print("Gusting to: ", obs.windGust, " m/s")
+
+    # Pressure in hPa
+    if obs.seaLevelPressure > 0.0:
+        print("Pressure: %.1f hPa" % (obs.seaLevelPressure / 100.0))
+
+    if obs.icon:
+        $ConditionsIcon.texture = obs.icon
+```
+
+<Tip>
+  Check `obs.rawMessage` for the full METAR string if you need data not exposed by `ObservationPacket` fields, such as runway visual range or weather intensity descriptors.
+</Tip>

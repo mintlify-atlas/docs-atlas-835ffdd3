@@ -1,0 +1,139 @@
+---
+title: "Fetching Current Weather Observations"
+sidebarTitle: "Observations"
+description: "Retrieve live weather station observations with GodotNWS, including temperature, wind, pressure, humidity, precipitation, and more."
+---
+
+Observations are **measured conditions** reported by an actual weather station right now, as opposed to forecasts which are model-generated predictions. GodotNWS pulls the latest observation from the nearest NWS station to your configured location and packages everything into an `ObservationPacket` resource.
+
+<Note>
+  Location setup must complete before calling this method. See the [Location Setup](/guides/location-setup) guide and wait for `location_setup_complete`.
+</Note>
+
+## Fetching Observations
+
+Call `Nws.fetch_current_observations(fetch_icon)`. When the data arrives, the `observations_fetched` signal fires with an `ObservationPacket`. If no observation data is available, the signal emits `null` instead — always check for this.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.observations_fetched.connect(_on_observations)
+    Nws.fetch_current_observations(true)  # true = fetch condition icon
+
+func _on_observations(obs: ObservationPacket) -> void:
+    if obs == null:
+        push_warning("Observations unavailable for this location.")
+        return
+
+    print("Station: ", obs.station)
+    print("Reported at: ", obs.timestamp)
+    print("Conditions: ", obs.textDescription)
+
+    # Temperature is always in Celsius — convert if needed
+    if obs.temperature != 0.0:
+        var celsius = obs.temperature
+        var fahrenheit = (celsius * 9.0 / 5.0) + 32.0
+        print("Temperature: %.1f°C (%.1f°F)" % [celsius, fahrenheit])
+
+    # Wind — check before printing, may be null/zero
+    if obs.windSpeed != 0.0:
+        print("Wind: %.1f km/h from %d°" % [obs.windSpeed, obs.windDirection])
+    if obs.windGust != 0.0:
+        print("Gusts to: %.1f km/h" % obs.windGust)
+
+    # Humidity and dewpoint
+    if obs.relativeHumidity != 0.0:
+        print("Humidity: %.1f%%" % obs.relativeHumidity)
+    if obs.dewpoint != 0.0:
+        print("Dewpoint: %.1f°C" % obs.dewpoint)
+
+    # Apply the icon texture if it was fetched
+    if obs.icon:
+        $WeatherIcon.texture = obs.icon
+```
+
+### The `fetch_icon` Parameter
+
+| Value | Behaviour |
+|-------|-----------|
+| `true` | Downloads the NWS condition icon PNG and sets `obs.icon` to an `ImageTexture`. The signal fires only after the icon arrives. |
+| `false` | Skips icon download. `obs.icon` will be `null`, but `obs.iconUrl` contains the URL. |
+
+## Temperature Units
+
+<Warning>
+  All temperature values in an `ObservationPacket` — including `temperature`, `dewpoint`, `windChill`, `heatIndex`, `maxTempLast24`, and `minTempLast24` — are provided in **Celsius** by the NWS API. Convert to Fahrenheit if your UI requires it:
+
+  ```gdscript
+  func celsius_to_fahrenheit(c: float) -> float:
+      return (c * 9.0 / 5.0) + 32.0
+  ```
+</Warning>
+
+## Null and Missing Fields
+
+The NWS observation format is sparse — weather stations do not always report every measurement. Many fields will be `0.0` or empty if the station did not include them. Always check a value before displaying it.
+
+```gdscript
+func _on_observations(obs: ObservationPacket) -> void:
+    if obs == null:
+        return
+
+    # Precipitation data may simply not be reported
+    if obs.precipitationLastHour != 0.0:
+        print("Last hour rain: %.2f mm" % obs.precipitationLastHour)
+    if obs.precipitationLast3Hours != 0.0:
+        print("Last 3h rain: %.2f mm" % obs.precipitationLast3Hours)
+    if obs.precipitationLast6Hours != 0.0:
+        print("Last 6h rain: %.2f mm" % obs.precipitationLast6Hours)
+
+    # Pressure
+    if obs.barometricPressure != 0.0:
+        print("Pressure: %.0f Pa" % obs.barometricPressure)
+    if obs.seaLevelPressure != 0.0:
+        print("Sea-level pressure: %.0f Pa" % obs.seaLevelPressure)
+
+    # Cloud cover
+    if obs.cloudLayers != "":
+        print("Cloud cover: %s at %.0f m" % [obs.cloudLayers, obs.baseCloudHeight])
+```
+
+## The `rawMessage` Field
+
+When available, `obs.rawMessage` contains the raw **METAR** string transmitted by the weather station. This is the same compact aviation weather format you see on aviation weather sites. It can be useful if you want to display or parse the unprocessed report.
+
+```gdscript
+if obs.rawMessage != "":
+    print("METAR: ", obs.rawMessage)
+# Example output: METAR KPHL 151854Z 24012KT 10SM FEW025 BKN060 18/10 A3002
+```
+
+## `ObservationPacket` Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `raw` | `Dictionary` | The complete raw JSON properties from the NWS API. |
+| `station` | `String` | URL/ID of the reporting station. |
+| `timestamp` | `String` | ISO 8601 timestamp of the observation. |
+| `rawMessage` | `String` | Raw METAR string, if the station transmitted one. |
+| `textDescription` | `String` | Human-readable condition description, e.g. `"Mostly Cloudy"`. |
+| `icon` | `ImageTexture` | Condition icon image, or `null`. |
+| `iconUrl` | `String` | URL of the NWS condition icon, if one exists. |
+| `presentWeather` | `String` | Current weather phenomenon code (e.g. `"rain"`, `"snow"`). |
+| `temperature` | `float` | Air temperature in **°C**. |
+| `dewpoint` | `float` | Dewpoint in **°C**. May be `0.0` if unreported. |
+| `windDirection` | `float` | Wind direction in degrees. May be `0.0` if calm or unreported. |
+| `windSpeed` | `float` | Wind speed in km/h. May be `0.0` if calm or unreported. |
+| `windGust` | `float` | Wind gust speed in km/h. May be `0.0` if no gusts. |
+| `barometricPressure` | `float` | Station pressure in Pascals. May be `0.0` if unreported. |
+| `seaLevelPressure` | `float` | Sea-level pressure in Pascals. May be `0.0` if unreported. |
+| `visibility` | `float` | Visibility in meters. May be `0.0` if unreported. |
+| `maxTempLast24` | `float` | 24-hour high temperature in **°C**. May be `0.0`. |
+| `minTempLast24` | `float` | 24-hour low temperature in **°C**. May be `0.0`. |
+| `precipitationLastHour` | `float` | Precipitation in the last hour, in mm. May be `0.0`. |
+| `precipitationLast3Hours` | `float` | Precipitation in the last 3 hours, in mm. May be `0.0`. |
+| `precipitationLast6Hours` | `float` | Precipitation in the last 6 hours, in mm. May be `0.0`. |
+| `relativeHumidity` | `float` | Relative humidity as a percentage. May be `0.0` if unreported. |
+| `windChill` | `float` | Wind chill temperature in **°C**. May be `0.0`. |
+| `heatIndex` | `float` | Heat index in **°C**. May be `0.0`. |
+| `cloudLayers` | `String` | Cloud coverage code for the lowest layer (e.g. `"FEW"`, `"BKN"`, `"OVC"`). |
+| `baseCloudHeight` | `float` | Height of the lowest cloud layer base in meters. May be `0.0`. |

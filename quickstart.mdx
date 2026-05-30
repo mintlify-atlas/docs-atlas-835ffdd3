@@ -1,47 +1,154 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with GodotNWS in 5 Minutes"
+sidebarTitle: "Quickstart"
+description: "Learn how to set up GodotNWS, configure a location, and display a live daily weather forecast in your Godot 4 scene in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
+This guide walks you through the minimum code needed to pull a live daily weather forecast into a Godot 4 scene. By the end you will have a script that configures a U.S. location, requests a forecast from the National Weather Service, and prints each period's name, temperature, and conditions to the output panel. From there you can wire the same data into labels, textures, or any other game logic you like.
 
 ## Prerequisites
 
-Before you begin, you must have:
+- Godot **4.1 or later**
+- GodotNWS installed and enabled (the `Nws` autoload appears in **Project → Project Settings → Autoload**)
 
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+## Steps
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Connect to location_setup_complete and call Nws.setup()">
+    The `Nws` singleton needs to resolve your coordinates against the NWS grid before any fetches will work. The resolution is asynchronous, so you must connect to the `location_setup_complete` signal **before** calling `setup()`.
 
-    ```bash
-    npm install your-package
+    ```gdscript
+    func _ready() -> void:
+        # Always connect signals before calling setup
+        Nws.location_setup_complete.connect(_on_location_ready)
+
+        # Austin, TX — replace with any valid US coordinates
+        Nws.setup(30.2672, -97.7431)
     ```
+
+    `setup()` accepts a `latitude: float` and `longitude: float`. The call returns immediately; the signal fires once the NWS grid lookup completes and `Nws.SetUp` becomes `true`.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Request the forecast inside the location handler">
+    Inside `_on_location_ready`, connect to `forecast_fetched` and call `fetch_forecast()`. Passing `false` skips downloading the weather icon images, which is faster when you only need text data.
+
+    ```gdscript
+    func _on_location_ready() -> void:
+        # Connect the result signal before calling the fetch method
+        Nws.forecast_fetched.connect(_on_forecast_received)
+        Nws.fetch_forecast(false)
     ```
+
+    Pass `true` to `fetch_forecast()` if you also want each `ForecastPeriod` to have its `icon` property populated as an `ImageTexture`.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
+  <Step title="Handle the forecast_fetched signal">
+    The `forecast_fetched` signal delivers a typed `Array[ForecastPeriod]`. Each element is a `ForecastPeriod` resource covering roughly a 12-hour day or night window.
+
+    ```gdscript
+    func _on_forecast_received(periods: Array[ForecastPeriod]) -> void:
+        for period in periods:
+            print(
+                period.name, " — ",
+                period.temperature, "°", period.temperatureUnit,
+                " | ", period.shortForecast,
+                " | Wind: ", period.windSpeed, " ", period.windDirection,
+                " | Precip: ", period.precipitationChance, "%"
+            )
     ```
+
+    The full list of fields available on every `ForecastPeriod` is shown in the complete example below.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Complete Example Script
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+Attach this script to any node in your scene. It is self-contained and demonstrates the full signal chain from location setup through forecast display.
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    # Step 1 — connect signals BEFORE calling any setup or fetch method
+    Nws.location_setup_complete.connect(_on_location_ready)
+
+    # Step 2 — configure the location (Austin, TX)
+    # Replace these coordinates with any valid US latitude / longitude pair
+    Nws.setup(30.2672, -97.7431)
+
+
+func _on_location_ready() -> void:
+    print("Location ready. Grid ID: ", Nws.gridId,
+          "  X:", Nws.gridX, "  Y:", Nws.gridY)
+
+    # Step 3 — connect the result signal, then request the forecast
+    # Pass true instead of false to also download icon ImageTextures
+    Nws.forecast_fetched.connect(_on_forecast_received)
+    Nws.fetch_forecast(false)
+
+
+func _on_forecast_received(periods: Array[ForecastPeriod]) -> void:
+    print("=== Daily Forecast (%d periods) ===" % periods.size())
+
+    for period in periods:
+        # --- Identity ---
+        # period.number        : int    — sequential period number (1, 2, 3 …)
+        # period.name          : String — human label ("Monday", "Monday Night", etc.)
+        # period.isDay         : bool   — true for daytime periods
+
+        # --- Timing (UTC DateTime dicts with keys: year, month, day, hour, …) ---
+        # period.startTime     : Dictionary
+        # period.endTime       : Dictionary
+
+        # --- Temperature ---
+        # period.temperature     : float  — temperature value
+        # period.temperatureUnit : String — "F" or "C"
+
+        # --- Precipitation ---
+        # period.precipitationChance : float — probability of precipitation (0–100)
+
+        # --- Wind ---
+        # period.windSpeed     : float  — wind speed
+        # period.windDirection : float  — wind direction in degrees
+
+        # --- Forecast text ---
+        # period.shortForecast    : String — brief summary ("Partly Cloudy")
+        # period.detailedForecast : String — full paragraph forecast
+
+        # --- Icon (only populated when fetch_forecast(true) is used) ---
+        # period.icon    : ImageTexture — weather icon texture (or null)
+        # period.iconUrl : String       — raw URL of the icon image
+
+        print(
+            "[%d] %s (%s) — %s°%s" % [
+                period.number,
+                period.name,
+                "Day" if period.isDay else "Night",
+                period.temperature,
+                period.temperatureUnit
+            ]
+        )
+        print("    Conditions : ", period.shortForecast)
+        print("    Wind       : ", period.windSpeed, " ", period.windDirection)
+        print("    Precip     : ", period.precipitationChance, "%")
+        print("    Details    : ", period.detailedForecast)
+        print()
+```
+
+<Tip>
+  **Always connect signals before calling the method that triggers them.** Because every GodotNWS fetch is asynchronous, if you call `Nws.setup()` or `Nws.fetch_forecast()` before connecting the corresponding signal, the response may arrive and emit before your handler is attached — and you will never receive the data. The safe pattern is: `signal.connect(handler)` → `fetch_method()`.
 </Tip>
+
+<Note>
+  **Automatic geolocation with `setup_ip()`:** If you want GodotNWS to detect the player's approximate location automatically, call `Nws.setup_ip()` instead of `Nws.setup(lat, lon)`. It queries a third-party IP geolocation service to determine latitude and longitude before proceeding with the NWS grid lookup. Explicit coordinates via `setup()` are generally more accurate and are recommended when you know the target location in advance.
+</Note>
+
+## Next Steps
+
+The forecast is just one of many data sources GodotNWS exposes. Explore the other guides to learn how to use:
+
+- **`fetch_hourly_forecast()`** — hour-by-hour conditions with dewpoint and relative humidity
+- **`fetch_current_observations()`** — live station readings including pressure, visibility, and wind gust
+- **`fetch_alerts()`** — active NWS watches, warnings, and advisories for the configured location
+- **`fetch_radar_gif()`** — animated radar loops returned as a raw GIF buffer
+- **`fetch_weather_stories()`**, **`fetch_graphicast()`**, **`fetch_radio_broadcast()`**, and more

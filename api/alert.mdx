@@ -1,0 +1,219 @@
+---
+title: "Alert: NWS Weather Alert Data Class"
+sidebarTitle: "Alert"
+description: "Alert is a Godot Resource containing full NWS weather alert data — severity, urgency, timeline, and message text — delivered via the alerts_fetched signal."
+---
+
+`Alert` is a typed `Resource` that holds all data for a single active NWS weather alert — such as a Tornado Warning, Flood Watch, or Winter Storm Advisory. An array of these resources is emitted by the `alerts_fetched` signal after calling `Nws.fetch_alerts()`. Alerts are scoped to the county zone of the configured location. The array may be empty if no alerts are active.
+
+```gdscript
+class_name Alert
+extends Resource
+```
+
+<Note>
+  The `ends` field may be an empty dictionary if the NWS did not specify a definite end time for the alert. Always check `ends.is_empty()` before using it. The `instruction` field may be an empty string for some alert types. The `replacedBy` and `replacedAt` fields are only set when this alert has been superseded by a newer one.
+</Note>
+
+## Fields
+
+### Identification
+
+<ResponseField name="id" type="String">
+  The unique identifier for this alert, assigned by the NWS (e.g. `"urn:oid:2.49.0.1.840.0.abc123..."`). Use this to track specific alerts across fetches or to match against `references`.
+</ResponseField>
+
+<ResponseField name="raw" type="Dictionary">
+  The complete, unmodified JSON properties object for this alert as returned by the NWS API. Useful for accessing any fields not explicitly mapped by `Alert`.
+</ResponseField>
+
+### Event & Classification
+
+<ResponseField name="event" type="String">
+  The type of weather event being alerted, such as `"Tornado Warning"`, `"Flood Watch"`, `"Winter Storm Advisory"`, or `"Special Weather Statement"`. This is the primary field for identifying what kind of alert has been issued.
+</ResponseField>
+
+<ResponseField name="category" type="String">
+  The broad category of the alert. For weather alerts this is typically `"Met"` (meteorological).
+</ResponseField>
+
+<ResponseField name="status" type="String">
+  Indicates the operational status of the alert message. Valid values:
+
+  | Value | Meaning |
+  |---|---|
+  | `"Actual"` | A real, operational alert |
+  | `"Exercise"` | Part of a drill or exercise |
+  | `"System"` | A system-generated message |
+  | `"Test"` | A test message |
+  | `"Draft"` | A draft not yet in effect |
+
+  In production use, you will almost always see `"Actual"`.
+</ResponseField>
+
+<ResponseField name="messageType" type="String">
+  Describes the relationship of this alert to previous messages. Valid values:
+
+  | Value | Meaning |
+  |---|---|
+  | `"Alert"` | Initial issuance of a new alert |
+  | `"Update"` | Updates and supersedes a previous alert |
+  | `"Cancel"` | Cancels a previous alert before its expiry |
+  | `"Ack"` | Acknowledgement message |
+  | `"Error"` | Error notification |
+</ResponseField>
+
+### Severity & Urgency
+
+<ResponseField name="severity" type="String">
+  The severity of the hazard. Valid values in descending order of severity:
+
+  | Value | Meaning |
+  |---|---|
+  | `"Extreme"` | Extraordinary threat to life or property |
+  | `"Severe"` | Significant threat to life or property |
+  | `"Moderate"` | Possible threat to life or property |
+  | `"Minor"` | Minimal to no known threat |
+  | `"Unknown"` | Severity not reported |
+</ResponseField>
+
+<ResponseField name="certainty" type="String">
+  How certain the forecaster is that the hazard will occur. Valid values:
+
+  | Value | Meaning |
+  |---|---|
+  | `"Observed"` | Already occurring |
+  | `"Likely"` | Probability > 50% |
+  | `"Possible"` | Probability ≤ 50% |
+  | `"Unlikely"` | Not expected to occur |
+  | `"Unknown"` | Certainty not reported |
+</ResponseField>
+
+<ResponseField name="urgency" type="String">
+  How quickly action is needed. Valid values:
+
+  | Value | Meaning |
+  |---|---|
+  | `"Immediate"` | Responsive action should be taken immediately |
+  | `"Expected"` | Responsive action should be taken soon (within the hour) |
+  | `"Future"` | Responsive action should be taken in the near future |
+  | `"Past"` | Responsive action is no longer required |
+  | `"Unknown"` | Urgency not reported |
+</ResponseField>
+
+### Timeline
+
+<ResponseField name="sent" type="Dictionary">
+  A Godot time dictionary representing when the alert message was transmitted by the NWS. Contains keys: `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday`, `dst`.
+</ResponseField>
+
+<ResponseField name="effective" type="Dictionary">
+  A Godot time dictionary for when the alert became (or becomes) effective. In the same format as `sent`.
+</ResponseField>
+
+<ResponseField name="onset" type="Dictionary">
+  A Godot time dictionary for when the hazard is expected to begin affecting the area. In the same format as `sent`.
+</ResponseField>
+
+<ResponseField name="expires" type="Dictionary">
+  A Godot time dictionary for when the alert expires if not cancelled or updated first. In the same format as `sent`.
+</ResponseField>
+
+<ResponseField name="ends" type="Dictionary">
+  A Godot time dictionary for the definite end of the hazard, if one was specified. **May be an empty dictionary** (`{}`) when the NWS did not set a definite end time. Always check `alert.ends.is_empty()` before using this field.
+</ResponseField>
+
+### Message Content
+
+<ResponseField name="headline" type="String">
+  A brief headline summarizing the alert, such as `"Tornado Warning issued for Travis County until 8:15 PM CDT"`.
+</ResponseField>
+
+<ResponseField name="capitalHeadline" type="String">
+  An alternate headline sourced from the `NWSheadline` parameter in the alert, which may differ in phrasing from `headline`. Typically written in all-caps style by NWS offices. May be empty if the alert does not include this parameter.
+</ResponseField>
+
+<ResponseField name="description" type="String">
+  The full body text of the alert, containing all details about the hazard, its expected impacts, and affected areas. This is the primary field to show in an expanded alert detail view.
+</ResponseField>
+
+<ResponseField name="instruction" type="String">
+  Recommended protective actions that the public should take in response to the alert (e.g. `"Move to an interior room on the lowest floor of a sturdy building."`). May be an empty string for some alert types.
+</ResponseField>
+
+<ResponseField name="response" type="String">
+  A shorter suggested response to the alert (e.g. `"Shelter"`, `"Evacuate"`, `"Prepare"`, `"Execute"`). Suitable for use in compact UI elements.
+</ResponseField>
+
+### Sender
+
+<ResponseField name="sender" type="String">
+  The email address or identifier of the NWS office that issued the alert (e.g. `"w-nws.webmaster@noaa.gov"`).
+</ResponseField>
+
+<ResponseField name="senderName" type="String">
+  The human-readable name of the NWS office that issued the alert (e.g. `"NWS Austin/San Antonio TX"`).
+</ResponseField>
+
+### Supersession
+
+<ResponseField name="references" type="Array[String]">
+  An array of alert IDs that this alert updates or cancels. Empty if this is a fresh `"Alert"` message type with no prior references.
+</ResponseField>
+
+<ResponseField name="replacedBy" type="String">
+  The ID of the alert that superseded this one. Only set if this alert has been replaced by a newer message. Empty string otherwise.
+</ResponseField>
+
+<ResponseField name="replacedAt" type="String">
+  The time string indicating when this alert was replaced. Only set alongside `replacedBy`. Empty string otherwise.
+</ResponseField>
+
+## Usage example
+
+```gdscript
+func _ready():
+    Nws.setup(35.4676, -97.5164)
+    Nws.location_setup_complete.connect(_on_location_ready)
+
+func _on_location_ready():
+    Nws.alerts_fetched.connect(_on_alerts)
+    Nws.fetch_alerts()
+
+func _on_alerts(alerts: Array[Alert]):
+    if alerts.is_empty():
+        print("No active alerts.")
+        return
+
+    for alert in alerts:
+        # Skip anything that isn't a real operational alert
+        if alert.status != "Actual":
+            continue
+
+        print("=== ", alert.event, " ===")
+        print("Severity: ", alert.severity, " | Certainty: ", alert.certainty,
+              " | Urgency: ", alert.urgency)
+        print("Issued by: ", alert.senderName)
+        print("Headline: ", alert.headline)
+        print("Onset: %04d-%02d-%02d %02d:%02d" % [
+            alert.onset["year"], alert.onset["month"], alert.onset["day"],
+            alert.onset["hour"], alert.onset["minute"]
+        ])
+
+        if not alert.ends.is_empty():
+            print("Ends: %04d-%02d-%02d %02d:%02d" % [
+                alert.ends["year"], alert.ends["month"], alert.ends["day"],
+                alert.ends["hour"], alert.ends["minute"]
+            ])
+
+        if alert.instruction != "":
+            print("What to do: ", alert.instruction)
+```
+
+<Warning>
+  Always filter by `alert.status == "Actual"` before displaying alerts to users. Test and exercise alerts are issued regularly by NWS offices and should not be shown as real emergencies.
+</Warning>
+
+<Tip>
+  Sort alerts by severity before displaying them. Use a helper that maps `"Extreme"` → 4, `"Severe"` → 3, `"Moderate"` → 2, `"Minor"` → 1, `"Unknown"` → 0 and call `alerts.sort_custom(func(a, b): return severity_rank(a) > severity_rank(b))`.
+</Tip>

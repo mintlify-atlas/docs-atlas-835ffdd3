@@ -1,0 +1,106 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "GodotNWS",
+  "projectDescription": "A Godot 4 plugin that wraps the U.S. National Weather Service API to provide forecast, observation, alert, radar, and weather imagery data via a simple autoload singleton.",
+  "theme": "palm",
+  "primaryColor": "#1A6FBF",
+  "lightColor": "#4DA6FF",
+  "darkColor": "#0D4A8A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/location-setup",
+              "guides/forecasts",
+              "guides/observations",
+              "guides/alerts",
+              "guides/radar-and-imagery"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Singleton (Nws)",
+            "pages": [
+              "api/setup",
+              "api/forecast",
+              "api/observations",
+              "api/alerts",
+              "api/radar-imagery"
+            ]
+          },
+          {
+            "group": "Data Classes",
+            "pages": [
+              "api/forecast-period",
+              "api/hourly-forecast-period",
+              "api/observation-packet",
+              "api/alert",
+              "api/weather-story"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Autoload singleton `Nws` registers automatically when the plugin is enabled",
+    "Location setup via explicit coordinates or automatic IP geolocation",
+    "Daily and hourly forecast fetching with optional icon images",
+    "Current weather observations including temperature, wind, precipitation, and pressure",
+    "Active weather alerts with full severity, urgency, and timeline metadata",
+    "Animated radar GIF retrieval (base reflectivity and base velocity)",
+    "Graphicast forecast images and forecast chart GIFs from NOAA",
+    "Weather stories from the local NWS forecast office",
+    "Radio broadcast text retrieval",
+    "US warning map and drought monitor images",
+    "Signal-driven async API — all responses are delivered via Godot signals"
+  ],
+  "publicApiSurface": [
+    "Nws.setup(latitude: float, longitude: float)",
+    "Nws.setup_ip()",
+    "Nws.fetch_forecast(fetch_images: bool)",
+    "Nws.fetch_hourly_forecast(fetch_images: bool)",
+    "Nws.fetch_current_observations(fetch_icon: bool)",
+    "Nws.fetch_alerts()",
+    "Nws.fetch_radar_gif(velocity: bool)",
+    "Nws.fetch_forecast_chart(index: int)",
+    "Nws.fetch_graphicast(index: int)",
+    "Nws.fetch_weather_stories()",
+    "Nws.fetch_radio_broadcast()",
+    "Nws.fetch_us_warning_map()",
+    "Nws.fetch_drought_monitor()",
+    "signal location_setup_complete",
+    "signal forecast_fetched(periods: Array[ForecastPeriod])",
+    "signal hourly_forecast_fetched(periods: Array[HourlyForecastPeriod])",
+    "signal observations_fetched(observations: ObservationPacket)",
+    "signal alerts_fetched(alerts: Array[Alert])",
+    "signal radar_fetched(image_buffer)",
+    "signal chart_fetched(image_buffer)",
+    "signal graphicast_fetched(image, index, last_modified)",
+    "signal weather_stories_fetched(stories: Array[WeatherStory])",
+    "signal radio_broadcast_fetched(Paragraphs: Array[String])",
+    "signal drought_fetched(image)",
+    "signal us_map_fetched(image)",
+    "class ForecastPeriod",
+    "class HourlyForecastPeriod",
+    "class ObservationPacket",
+    "class Alert",
+    "class WeatherStory"
+  ]
+}

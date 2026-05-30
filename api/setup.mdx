@@ -1,0 +1,98 @@
+---
+title: "Nws.setup() and Location Initialization"
+sidebarTitle: "Setup"
+description: "Reference for the Nws singleton setup methods and location_setup_complete signal. Required before calling any GodotNWS fetch methods."
+---
+
+Before you can call any fetch method on the `Nws` singleton, you must initialize it with a geographic location. Both setup methods configure the singleton's internal state — latitude, longitude, NWS grid coordinates, forecast URLs, and observation station — and then emit `location_setup_complete` once that initialization is finished. All subsequent fetch calls depend on this state, so you must wait for the signal before invoking any of them.
+
+## Methods
+
+### `setup(latitude: float, longitude: float)`
+
+Initializes the singleton using explicit coordinates. Use this when you already know the player's or app's target location. The method immediately sets `lat` and `lon`, then makes an asynchronous request to the NWS Points API to populate grid data and forecast URLs. When everything is ready, `location_setup_complete` is emitted.
+
+<ParamField path="latitude" type="float" required>
+  Latitude of the target location in decimal degrees. Must be within the United States and its territories.
+</ParamField>
+
+<ParamField path="longitude" type="float" required>
+  Longitude of the target location in decimal degrees. Must be within the United States and its territories.
+</ParamField>
+
+---
+
+### `setup_ip()`
+
+Initializes the singleton by geolocating the user's public IP address. Internally, this calls `http://ip-api.com/json`, extracts the returned `lat` and `lon` values, and then proceeds identically to `setup()`. No parameters are required.
+
+<Note>
+  IP geolocation is approximate and may resolve to a city center rather than the user's precise position. For weather data, this is usually close enough, but consider using `setup()` with GPS-derived coordinates for the most accurate results.
+</Note>
+
+---
+
+## Signal
+
+### `location_setup_complete`
+
+Emitted by the `Nws` singleton after both the NWS Points API and the observation stations API have responded successfully. At this point, all internal URLs and grid values are populated and every fetch method is safe to call.
+
+This signal carries no parameters.
+
+---
+
+## Property
+
+### `SetUp: bool`
+
+A read-only indicator that becomes `true` once `location_setup_complete` has fired. All fetch methods call `Check()` internally, which asserts that `SetUp == true`. You should not read or write this property directly; use the signal to know when initialization is complete.
+
+---
+
+## Internal State Populated
+
+After `location_setup_complete` fires, the following values are available on the singleton:
+
+| Property | Type | Description |
+|---|---|---|
+| `lat` | `float` | Latitude used for all requests |
+| `lon` | `float` | Longitude used for all requests |
+| `gridX` | `int` | NWS forecast grid X coordinate |
+| `gridY` | `int` | NWS forecast grid Y coordinate |
+| `gridId` | `Variant` | NWS grid office identifier (e.g. `"TOP"`) |
+
+---
+
+## Code Example
+
+Connect to `location_setup_complete` before calling `setup()` so your handler is ready the moment initialization finishes.
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_location_ready)
+    Nws.setup(39.7456, -97.0892)
+
+func _on_location_ready() -> void:
+    print("Grid: %s %d,%d" % [Nws.gridId, Nws.gridX, Nws.gridY])
+    # Safe to call any fetch method now
+    Nws.fetch_forecast(false)
+```
+
+To use IP-based setup instead, replace `Nws.setup(...)` with `Nws.setup_ip()`:
+
+```gdscript
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_location_ready)
+    Nws.setup_ip()
+```
+
+<Warning>
+  Calling any fetch method before `location_setup_complete` fires will trigger a failed assertion and halt execution in debug builds. Always wait for the signal.
+</Warning>
+
+<Note>
+  Only US locations are supported. Coordinates outside the United States and its territories will cause the internal NWS Points API call to fail, and `location_setup_complete` will never emit.
+</Note>

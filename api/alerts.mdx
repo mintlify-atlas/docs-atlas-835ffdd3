@@ -1,0 +1,146 @@
+---
+title: "Nws.fetch_alerts() and Active Alert Data"
+sidebarTitle: "Alerts"
+description: "Reference for fetch_alerts() on the Nws singleton, the alerts_fetched signal, and the Alert resource fields: severity, urgency, timeline, and message text."
+---
+
+The NWS issues alerts to communicate imminent hazards — watches, warnings, advisories, and statements — for a specific county. `fetch_alerts()` retrieves all currently active alerts for the county associated with your configured location and returns them as structured `Alert` resources. Requires `location_setup_complete` to have fired before calling.
+
+## Method
+
+### `fetch_alerts()`
+
+Fetches active NWS alerts for the configured location's county zone and emits `alerts_fetched`. Takes no parameters.
+
+---
+
+## Signal
+
+### `alerts_fetched(alerts: Array[Alert])`
+
+Emitted when the active alert list has been fetched and parsed.
+
+<Note>
+  The signal emits an empty array when no alerts are currently active for the area. Always check `alerts.is_empty()` before iterating.
+</Note>
+
+<ResponseField name="alerts" type="Array[Alert]">
+  An array of `Alert` resources representing each currently active alert. Each resource exposes the following fields:
+
+  <Expandable title="Alert fields">
+    <ResponseField name="event" type="String">
+      The primary alert title as issued by the NWS, such as `"Tornado Warning"`, `"Flood Watch"`, or `"Winter Storm Advisory"`.
+    </ResponseField>
+    <ResponseField name="headline" type="String">
+      A one-line summary of the alert combining event type, area, and timing.
+    </ResponseField>
+    <ResponseField name="capitalHeadline" type="String">
+      The `NWSheadline` parameter value from the alert, often displayed in uppercase in official NWS products. May be empty if not provided.
+    </ResponseField>
+    <ResponseField name="description" type="String">
+      The full text body of the alert, detailing the hazard, affected area, and meteorological context.
+    </ResponseField>
+    <ResponseField name="instruction" type="String">
+      Recommended protective actions for the public. May be empty for informational alerts that carry no specific instructions.
+    </ResponseField>
+    <ResponseField name="response" type="String">
+      A shorter recommended action code, such as `"Shelter"`, `"Evacuate"`, or `"Monitor"`.
+    </ResponseField>
+    <ResponseField name="severity" type="String">
+      The severity level of the alert. One of `"Extreme"`, `"Severe"`, `"Moderate"`, `"Minor"`, or `"Unknown"`.
+    </ResponseField>
+    <ResponseField name="certainty" type="String">
+      How certain the event is to occur. One of `"Observed"`, `"Likely"`, `"Possible"`, `"Unlikely"`, or `"Unknown"`.
+    </ResponseField>
+    <ResponseField name="urgency" type="String">
+      Time-sensitivity of the alert. One of `"Immediate"`, `"Expected"`, `"Future"`, `"Past"`, or `"Unknown"`.
+    </ResponseField>
+    <ResponseField name="status" type="String">
+      Alert status, typically `"Actual"` for live alerts. Other values include `"Exercise"` and `"Test"`.
+    </ResponseField>
+    <ResponseField name="messageType" type="String">
+      Whether this is a new alert or an update. One of `"Alert"`, `"Update"`, or `"Cancel"`.
+    </ResponseField>
+    <ResponseField name="category" type="String">
+      The general hazard category, such as `"Met"` for meteorological events.
+    </ResponseField>
+    <ResponseField name="sent" type="Dictionary">
+      Date and time the alert message was transmitted, as a datetime dictionary with UTC offset applied.
+    </ResponseField>
+    <ResponseField name="effective" type="Dictionary">
+      Date and time the alert became effective, in the same datetime dictionary format.
+    </ResponseField>
+    <ResponseField name="onset" type="Dictionary">
+      Date and time the hazardous conditions are expected to begin.
+    </ResponseField>
+    <ResponseField name="expires" type="Dictionary">
+      Date and time the alert expires, regardless of whether the event has ended.
+    </ResponseField>
+    <ResponseField name="ends" type="Dictionary">
+      Date and time the event itself is expected to end. May not be present for all alerts; check before use.
+    </ResponseField>
+    <ResponseField name="sender" type="String">
+      Email address of the issuing NWS office.
+    </ResponseField>
+    <ResponseField name="senderName" type="String">
+      Human-readable name of the issuing office, such as `"NWS Topeka KS"`.
+    </ResponseField>
+    <ResponseField name="id" type="String">
+      The unique identifier string for this alert in the NWS CAP format.
+    </ResponseField>
+    <ResponseField name="references" type="Array[String]">
+      Identifier strings of any earlier alerts that this one supersedes or references.
+    </ResponseField>
+    <ResponseField name="replacedBy" type="String">
+      The `id` of the alert that replaced this one, if applicable.
+    </ResponseField>
+    <ResponseField name="replacedAt" type="String">
+      The time this alert was replaced, as an ISO 8601 string, if applicable.
+    </ResponseField>
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API for this alert.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Code Example
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_ready)
+    Nws.setup(39.7456, -97.0892)
+
+func _on_ready() -> void:
+    Nws.alerts_fetched.connect(_on_alerts)
+    Nws.fetch_alerts()
+
+func _on_alerts(alerts: Array[Alert]) -> void:
+    if alerts.is_empty():
+        print("No active alerts.")
+        return
+
+    for alert in alerts:
+        print("--- %s ---" % alert.event)
+        print("Severity: %s | Urgency: %s | Certainty: %s" % [
+            alert.severity,
+            alert.urgency,
+            alert.certainty
+        ])
+        print("Issued by: %s" % alert.senderName)
+        print(alert.headline)
+
+        if not alert.instruction.is_empty():
+            print("What to do: %s" % alert.instruction)
+
+        print("Expires: %d/%d/%d %02d:%02d UTC" % [
+            alert.expires["month"],
+            alert.expires["day"],
+            alert.expires["year"],
+            alert.expires["hour"],
+            alert.expires["minute"]
+        ])
+```

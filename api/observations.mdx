@@ -1,0 +1,149 @@
+---
+title: "Nws.fetch_current_observations() Reference"
+sidebarTitle: "Observations"
+description: "Reference for fetch_current_observations() on the Nws singleton: fetch_icon parameter, the observations_fetched signal, and ObservationPacket fields."
+---
+
+Current observations provide real-time conditions reported by the nearest NWS observation station for your configured location. Unlike forecast data, observations reflect what is actually happening right now: temperature, wind, pressure, humidity, precipitation, and cloud cover. Requires `location_setup_complete` to have fired before calling.
+
+## Method
+
+### `fetch_current_observations(fetch_icon: bool)`
+
+Fetches the latest observation from the NWS zone observation feed and emits `observations_fetched` with an `ObservationPacket` resource. Not all fields in `ObservationPacket` are guaranteed to be present — the NWS API omits measurements that are not available at the reporting station.
+
+<ParamField path="fetch_icon" type="bool" required>
+  When `true`, the current condition icon is fetched and stored in `ObservationPacket.icon` as an `ImageTexture`. The signal fires only after the icon has loaded. When `false`, `ObservationPacket.icon` is `null` but `ObservationPacket.iconUrl` is still populated if an icon URL was returned by the API.
+</ParamField>
+
+---
+
+## Signal
+
+### `observations_fetched(observations: ObservationPacket)`
+
+Emitted when the observation data — and the condition icon, if requested — is ready.
+
+<Warning>
+  This signal emits `null` when the NWS observation feed returns no data for the zone. Always null-check the `observations` argument before accessing any of its properties.
+</Warning>
+
+<ResponseField name="observations" type="ObservationPacket">
+  An `ObservationPacket` resource containing current conditions, or `null` if observations are unavailable. The packet exposes the following fields:
+
+  <Expandable title="ObservationPacket fields">
+    <ResponseField name="station" type="String">
+      The URL identifier of the reporting observation station.
+    </ResponseField>
+    <ResponseField name="timestamp" type="String">
+      ISO 8601 timestamp string of when the observation was recorded.
+    </ResponseField>
+    <ResponseField name="rawMessage" type="String">
+      Raw METAR or observation string as transmitted by the station.
+    </ResponseField>
+    <ResponseField name="textDescription" type="String">
+      Human-readable description of current conditions, such as `"Mostly Cloudy"`.
+    </ResponseField>
+    <ResponseField name="icon" type="ImageTexture">
+      Current condition icon as an `ImageTexture`, or `null` if `fetch_icon` was `false` or no icon URL was provided.
+    </ResponseField>
+    <ResponseField name="iconUrl" type="String">
+      Direct URL to the condition icon PNG, if provided by the API.
+    </ResponseField>
+    <ResponseField name="presentWeather" type="String">
+      Short present-weather code string from the first reported weather phenomenon, if any.
+    </ResponseField>
+    <ResponseField name="temperature" type="float">
+      Current temperature in **degrees Celsius**.
+    </ResponseField>
+    <ResponseField name="dewpoint" type="float">
+      Dewpoint temperature in **degrees Celsius**, if reported.
+    </ResponseField>
+    <ResponseField name="windDirection" type="float">
+      Wind direction in degrees (0–360), if reported.
+    </ResponseField>
+    <ResponseField name="windSpeed" type="float">
+      Wind speed in **meters per second**, if reported.
+    </ResponseField>
+    <ResponseField name="windGust" type="float">
+      Wind gust speed in **meters per second**, if reported.
+    </ResponseField>
+    <ResponseField name="barometricPressure" type="float">
+      Station barometric pressure in **Pascals**, if reported.
+    </ResponseField>
+    <ResponseField name="seaLevelPressure" type="float">
+      Sea-level pressure in **Pascals**, if reported.
+    </ResponseField>
+    <ResponseField name="visibility" type="float">
+      Horizontal visibility in **meters**, if reported.
+    </ResponseField>
+    <ResponseField name="maxTempLast24" type="float">
+      Maximum temperature in the last 24 hours in **degrees Celsius**, if reported.
+    </ResponseField>
+    <ResponseField name="minTempLast24" type="float">
+      Minimum temperature in the last 24 hours in **degrees Celsius**, if reported.
+    </ResponseField>
+    <ResponseField name="precipitationLastHour" type="float">
+      Liquid precipitation accumulation in the last hour in **meters**, if reported.
+    </ResponseField>
+    <ResponseField name="precipitationLast3Hours" type="float">
+      Liquid precipitation accumulation in the last 3 hours in **meters**, if reported.
+    </ResponseField>
+    <ResponseField name="precipitationLast6Hours" type="float">
+      Liquid precipitation accumulation in the last 6 hours in **meters**, if reported.
+    </ResponseField>
+    <ResponseField name="relativeHumidity" type="float">
+      Relative humidity as a percentage (0–100), if reported.
+    </ResponseField>
+    <ResponseField name="windChill" type="float">
+      Wind chill temperature in **degrees Celsius**, if reported.
+    </ResponseField>
+    <ResponseField name="heatIndex" type="float">
+      Heat index temperature in **degrees Celsius**, if reported.
+    </ResponseField>
+    <ResponseField name="cloudLayers" type="String">
+      Sky coverage code for the lowest cloud layer (e.g. `"BKN"`, `"OVC"`), if reported.
+    </ResponseField>
+    <ResponseField name="baseCloudHeight" type="float">
+      Height of the lowest cloud layer base in **meters**, if reported.
+    </ResponseField>
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API observation response.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  All measurements use metric units as returned directly by the NWS API: temperature in Celsius, wind speed in m/s, pressure in Pascals, precipitation in meters, visibility in meters, and cloud height in meters. Convert as needed before displaying to users.
+</Note>
+
+---
+
+## Code Example
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_ready)
+    Nws.setup(39.7456, -97.0892)
+
+func _on_ready() -> void:
+    Nws.observations_fetched.connect(_on_observations)
+    Nws.fetch_current_observations(true)
+
+func _on_observations(obs: ObservationPacket) -> void:
+    if obs == null:
+        print("Observations unavailable for this location.")
+        return
+
+    print("Station: ", obs.station)
+    print("Conditions: ", obs.textDescription)
+    print("Temperature: %.1f°C" % obs.temperature)
+
+    if obs.windSpeed > 0.0:
+        print("Wind: %.1f m/s from %d°" % [obs.windSpeed, obs.windDirection])
+
+    if obs.icon:
+        $WeatherIcon.texture = obs.icon
+```

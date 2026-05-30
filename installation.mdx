@@ -1,0 +1,86 @@
+---
+title: "Install GodotNWS in Your Godot 4 Project"
+sidebarTitle: "Installation"
+description: "Step-by-step instructions for adding the GodotNWS plugin to your Godot 4.1+ project and enabling the Nws autoload singleton."
+---
+
+Installing GodotNWS is a straightforward process that mirrors how any Godot 4 editor plugin is added to a project. You copy a folder, flip a toggle in Project Settings, and the global `Nws` singleton becomes available everywhere in your codebase. No package manager, no external dependencies, and no API key registration is required — the U.S. National Weather Service API is free and open.
+
+<Steps>
+  <Step title="Download the plugin from GitHub">
+    Visit the [GodotNWS repository](https://github.com/OdintheDoggo/GodotNWS) and download the source. You can either:
+
+    - Click **Code → Download ZIP** and extract it, or
+    - Clone the repository with Git:
+
+    ```bash
+    git clone https://github.com/OdintheDoggo/GodotNWS.git
+    ```
+
+    The file you need is the `addons/GodotNws/` folder found at the root of the downloaded or cloned repository.
+  </Step>
+
+  <Step title="Copy the plugin folder into your project">
+    Inside your Godot project's root directory, create an `addons/` folder if one does not already exist. Then copy the entire `GodotNws` folder into it so that the final structure looks like this:
+
+    ```
+    your_project/
+    └── addons/
+        └── GodotNws/
+            ├── plugin.cfg
+            ├── NWS.gd
+            ├── NwsSingleton.gd
+            ├── forecastperiod.gd
+            ├── observations.gd
+            └── alert.gd
+    ```
+
+    Do not rename the folder — Godot locates the plugin by the path declared inside `plugin.cfg`.
+  </Step>
+
+  <Step title="Enable the plugin in the Godot editor">
+    Open your project in the Godot editor, then navigate to:
+
+    **Project → Project Settings → Plugins**
+
+    Find **GodotNWS** in the plugin list and toggle the **Enable** checkbox. The status column will change to *Active*.
+
+    If the plugin does not appear, verify that `addons/GodotNws/plugin.cfg` exists and that Godot has finished scanning the filesystem (try **Project → Reload Current Project** if needed).
+  </Step>
+
+  <Step title="Verify the Nws autoload is registered">
+    After enabling the plugin, navigate to:
+
+    **Project → Project Settings → Autoload**
+
+    You should see an entry named **Nws** pointing to `res://addons/godotnws/NwsSingleton.gd`. This confirms the singleton was registered successfully.
+
+    In any script, you can also verify at runtime:
+
+    ```gdscript
+    func _ready() -> void:
+        # SetUp is false until setup() or setup_ip() is called
+        print(Nws.SetUp)  # prints false
+    ```
+  </Step>
+</Steps>
+
+## How the Autoload Is Registered
+
+When you enable GodotNWS, the editor plugin's `_enable_plugin()` method in `NWS.gd` calls:
+
+```gdscript
+add_autoload_singleton("Nws", "res://addons/godotnws/NwsSingleton.gd")
+```
+
+This is why `Nws` appears globally without any additional setup on your part. Godot adds it to the autoload list and instantiates it before any of your scenes load, making it available from the very first `_ready()` call in your project.
+
+<Warning>
+  GodotNWS requires **Godot 4.1 or later**. The plugin uses typed array signals and `HTTPRequest` features that are not available in Godot 3.x or early Godot 4.0 builds. Using an older version of the engine will produce errors on startup.
+</Warning>
+
+<Note>
+  **Disabling the plugin** is equally clean. When you toggle GodotNWS off in Project Settings, the editor plugin's `_disable_plugin()` method calls `remove_autoload_singleton("Nws")`, which removes the entry from your autoload list automatically. No manual cleanup is needed.
+</Note>
+
+With the plugin installed and enabled, you're ready to configure a location and start fetching weather data. Continue to the [Quickstart guide](/quickstart) to see a working example in under five minutes.

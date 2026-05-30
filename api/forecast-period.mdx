@@ -1,0 +1,102 @@
+---
+title: "ForecastPeriod: Daily Forecast Data Class"
+sidebarTitle: "ForecastPeriod"
+description: "ForecastPeriod is a Godot Resource holding one period of a daily weather forecast, delivered via the forecast_fetched signal from the Nws singleton."
+---
+
+`ForecastPeriod` is a typed `Resource` that represents a single named period in a daily weather forecast — for example, "Tonight", "Monday", or "Monday Night". An array of these resources is emitted by the `forecast_fetched` signal after calling `Nws.fetch_forecast()`. Periods are ordered chronologically, with `number = 1` being the soonest upcoming period. The NWS typically returns 14 periods covering the next 7 days.
+
+```gdscript
+class_name ForecastPeriod
+extends Resource
+```
+
+<Note>
+  Pass `fetch_images: true` to `fetch_forecast()` if you need the `icon` field populated. When `false`, `icon` is `null` and only `iconUrl` is set.
+</Note>
+
+## Fields
+
+<ResponseField name="raw" type="Dictionary">
+  The complete, unmodified JSON object for this period as returned by the NWS API. Useful for accessing any fields not explicitly mapped by `ForecastPeriod`.
+</ResponseField>
+
+<ResponseField name="number" type="int">
+  The sequential index of this period within the forecast. `1` is the first (soonest) period. Periods increment by one and cover either daytime or overnight intervals.
+</ResponseField>
+
+<ResponseField name="name" type="String">
+  A human-readable label for the period, such as `"Tonight"`, `"Monday"`, or `"Monday Night"`. Suitable for display as a heading in forecast UI elements.
+</ResponseField>
+
+<ResponseField name="startTime" type="Dictionary">
+  A Godot time dictionary produced by `Time.get_datetime_dict_from_datetime_string()`. Contains keys: `year`, `month`, `day`, `hour`, `minute`, `second`, `weekday`, `dst`.
+</ResponseField>
+
+<ResponseField name="endTime" type="Dictionary">
+  The end of this forecast period, in the same Godot time dictionary format as `startTime`.
+</ResponseField>
+
+<ResponseField name="isDay" type="bool">
+  `true` if this period represents a daytime interval (e.g. "Monday"), `false` for overnight periods (e.g. "Monday Night"). Useful for choosing day vs. night UI themes.
+</ResponseField>
+
+<ResponseField name="temperature" type="float">
+  The forecast temperature for this period. The unit is determined by `temperatureUnit`.
+</ResponseField>
+
+<ResponseField name="temperatureUnit" type="String">
+  The unit for `temperature`. Either `"F"` (Fahrenheit) or `"C"` (Celsius), depending on the NWS response for the location.
+</ResponseField>
+
+<ResponseField name="precipitationChance" type="float">
+  The probability of precipitation for this period, expressed as a percentage from `0` to `100`.
+</ResponseField>
+
+<ResponseField name="windSpeed" type="float">
+  The forecast wind speed for this period. Returned as a raw value from the NWS API — the underlying unit follows the NWS response format for the location.
+</ResponseField>
+
+<ResponseField name="windDirection" type="float">
+  The forecast wind direction in degrees (meteorological convention: 0° = North, 90° = East, 180° = South, 270° = West).
+</ResponseField>
+
+<ResponseField name="icon" type="ImageTexture">
+  A loaded `ImageTexture` of the NWS weather icon for this period. This field is `null` unless `fetch_images: true` was passed to `fetch_forecast()`.
+</ResponseField>
+
+<ResponseField name="iconUrl" type="String">
+  The direct URL to the NWS weather icon PNG for this period. Always populated regardless of the `fetch_images` flag. Use this if you want to load the image yourself or display it via a web view.
+</ResponseField>
+
+<ResponseField name="shortForecast" type="String">
+  A brief description of the forecast conditions, such as `"Partly Cloudy"` or `"Chance Rain Showers"`. Suitable for compact display alongside the temperature.
+</ResponseField>
+
+<ResponseField name="detailedForecast" type="String">
+  A full prose description of the forecast for this period, for example: `"Partly cloudy, with a low around 54. South wind 5 to 10 mph."` Suitable for expanded detail views or accessibility text.
+</ResponseField>
+
+## Usage example
+
+```gdscript
+func _ready():
+    Nws.setup(30.2672, -97.7431)
+    Nws.location_setup_complete.connect(_on_location_ready)
+
+func _on_location_ready():
+    Nws.forecast_fetched.connect(_on_forecast)
+    Nws.fetch_forecast(true)  # pass true to load icon textures
+
+func _on_forecast(periods: Array[ForecastPeriod]):
+    for period in periods:
+        print(period.name, ": ", period.temperature, "°", period.temperatureUnit)
+        print("  ", period.shortForecast)
+        print("  Precip chance: ", period.precipitationChance, "%")
+        if period.icon:
+            $WeatherIcon.texture = period.icon
+```
+
+<Tip>
+  If you only need a handful of periods, slice the array: `periods.slice(0, 3)` gives you the next three forecast periods.
+</Tip>

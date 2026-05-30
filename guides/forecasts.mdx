@@ -1,0 +1,131 @@
+---
+title: "Fetching Daily and Hourly Forecasts"
+sidebarTitle: "Forecasts"
+description: "Use GodotNWS to retrieve multi-day and hourly weather forecasts, including temperature, wind, precipitation chance, and optional weather icons."
+---
+
+GodotNWS exposes two forecast feeds from the NWS API: a **daily** forecast that covers the next several days in named periods (e.g. "This Afternoon", "Tonight", "Tuesday"), and an **hourly** forecast that provides conditions for every hour over the next several days. Both feeds return typed resource objects and emit a signal when data is ready.
+
+<Note>
+  Location setup must complete before calling any fetch method. See the [Location Setup](/guides/location-setup) guide and wait for `location_setup_complete` before proceeding.
+</Note>
+
+## Daily Forecast
+
+### Fetching
+
+Call `Nws.fetch_forecast(fetch_images)` to request the multi-day forecast. When the data is ready, the `forecast_fetched` signal fires with an array of `ForecastPeriod` resources.
+
+```gdscript
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_location_ready)
+    Nws.setup(39.9526, -75.1652)  # Philadelphia, PA
+
+func _on_location_ready() -> void:
+    Nws.forecast_fetched.connect(_on_forecast)
+    Nws.fetch_forecast(true)  # true = also download icon images
+
+func _on_forecast(periods: Array[ForecastPeriod]) -> void:
+    # Sort by period number so day/night ordering is correct
+    periods.sort_custom(func(a, b): return a.number < b.number)
+
+    for period in periods:
+        var label = "Day" if period.isDay else "Night"
+        print("[%s] %s (%s)" % [label, period.name, period.temperatureUnit])
+        print("  Temp:   %s°%s" % [period.temperature, period.temperatureUnit])
+        print("  Precip: %s%%" % period.precipitationChance)
+        print("  Wind:   %s from %s°" % [period.windSpeed, period.windDirection])
+        print("  Short:  %s" % period.shortForecast)
+        print("  Detail: %s" % period.detailedForecast)
+        if period.icon:
+            $ForecastIcon.texture = period.icon
+```
+
+### The `fetch_images` Parameter
+
+| Value | Behaviour |
+|-------|-----------|
+| `true` | Downloads the NWS icon PNG for each period. `period.icon` will be an `ImageTexture`. Each icon is fetched asynchronously. |
+| `false` | Skips image downloads. `period.icon` will be `null`, but `period.iconUrl` is always populated with the URL string. Faster and bandwidth-friendly. |
+
+<Warning>
+  When `fetch_images` is `true`, image downloads happen concurrently. The `forecast_fetched` signal fires only after **all** icons have arrived, but the periods inside the array may not be in chronological order. Always sort by `period.number` before displaying.
+</Warning>
+
+### `ForecastPeriod` Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `raw` | `Dictionary` | The full raw JSON properties for this period from the NWS API. |
+| `number` | `int` | Period index starting at `1`. Odd = daytime, even = night (generally). |
+| `name` | `String` | Human-readable period name, e.g. `"Tonight"`, `"Wednesday"`. |
+| `startTime` | `Dictionary` | Period start as a Godot datetime dict (`year`, `month`, `day`, `hour`, `minute`, `second`, `weekday`, `dst`). |
+| `endTime` | `Dictionary` | Period end as a Godot datetime dict. |
+| `isDay` | `bool` | `true` if this is a daytime period. |
+| `temperature` | `float` | Forecast temperature. |
+| `temperatureUnit` | `String` | `"F"` or `"C"` depending on the NWS grid. |
+| `precipitationChance` | `float` | Probability of precipitation as a percentage (0–100). |
+| `windSpeed` | `float` | Wind speed value for the period. |
+| `windDirection` | `float` | Wind direction in degrees. |
+| `icon` | `ImageTexture` | Downloaded icon image, or `null` if `fetch_images` was `false`. |
+| `iconUrl` | `String` | URL of the NWS condition icon, always populated. |
+| `shortForecast` | `String` | Brief condition summary, e.g. `"Mostly Cloudy"`. |
+| `detailedForecast` | `String` | Full narrative forecast text for the period. |
+
+<Tip>
+  Use `period.isDay` to apply day/night visual styling — for example, switching between a sun icon and a moon icon, or adjusting your UI background colors.
+</Tip>
+
+---
+
+## Hourly Forecast
+
+### Fetching
+
+Call `Nws.fetch_hourly_forecast(fetch_images)` for per-hour conditions. The signal `hourly_forecast_fetched` fires with an array of `HourlyForecastPeriod` resources. Hourly periods do **not** have a `name` field.
+
+```gdscript
+func _on_location_ready() -> void:
+    Nws.hourly_forecast_fetched.connect(_on_hourly)
+    Nws.fetch_hourly_forecast(false)  # Skip icons for speed
+
+func _on_hourly(periods: Array[HourlyForecastPeriod]) -> void:
+    periods.sort_custom(func(a, b): return a.number < b.number)
+
+    for period in periods:
+        var hour = period.startTime["hour"]
+        print("%02d:00 — %s°%s, humidity %s%%, dewpoint %s°" % [
+            hour,
+            period.temperature,
+            period.temperatureUnit,
+            period.relativeHumidity,
+            period.dewpoint
+        ])
+```
+
+### `HourlyForecastPeriod` Fields
+
+`HourlyForecastPeriod` has the same fields as `ForecastPeriod` **except** there is no `name` field. It adds two extra fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `raw` | `Dictionary` | Full raw JSON properties from the NWS API. |
+| `number` | `int` | Hour index starting at `1`. Use this to sort periods into chronological order. |
+| `startTime` | `Dictionary` | Hour start as a Godot datetime dict. |
+| `endTime` | `Dictionary` | Hour end as a Godot datetime dict. |
+| `isDay` | `bool` | `true` if this hour falls during daytime. |
+| `temperature` | `float` | Temperature for this hour. |
+| `temperatureUnit` | `String` | `"F"` or `"C"`. |
+| `precipitationChance` | `float` | Probability of precipitation (0–100). |
+| `dewpoint` | `float` | Dewpoint temperature in the same unit as `temperature`. |
+| `relativeHumidity` | `float` | Relative humidity as a percentage (0–100). |
+| `windSpeed` | `float` | Wind speed for this hour. |
+| `windDirection` | `float` | Wind direction in degrees. |
+| `icon` | `ImageTexture` | Downloaded icon, or `null` if icons were not fetched. |
+| `iconUrl` | `String` | URL of the NWS condition icon, always populated. |
+| `shortForecast` | `String` | Brief condition summary. |
+| `detailedForecast` | `String` | Full narrative text for this hour. |
+
+<Note>
+  The same sort-by-`number` rule applies to hourly periods when `fetch_images` is `true`. Async image downloads complete in unpredictable order, so always sort before iterating for display.
+</Note>

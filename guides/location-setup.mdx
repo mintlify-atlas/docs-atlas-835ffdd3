@@ -1,0 +1,101 @@
+---
+title: "Setting Up Your Location in GodotNWS"
+sidebarTitle: "Location Setup"
+description: "Learn how to configure GodotNWS with explicit GPS coordinates or automatic IP geolocation before calling any weather data fetch methods."
+---
+
+Before you can fetch any weather data, GodotNWS needs to know where you are. The `Nws` singleton contacts the NWS `/points` endpoint to resolve your coordinates into a forecast grid, observation stations, and all the internal URLs used by every subsequent fetch call. Nothing else will work until this setup step completes successfully.
+
+## Choosing a Setup Method
+
+GodotNWS offers two ways to provide your location. Pick the one that fits your game's design:
+
+<Tabs>
+  <Tab title="Explicit Coordinates">
+    Use `Nws.setup()` when you already have a latitude and longitude — for example, from a location the player typed in, a map pin, or a saved game file.
+
+    ```gdscript
+    func _ready() -> void:
+        Nws.location_setup_complete.connect(_on_location_ready)
+        # Coordinates for Chicago, IL
+        Nws.setup(41.8827, -87.6233)
+
+    func _on_location_ready() -> void:
+        print("Location ready! SetUp =", Nws.SetUp)
+        # Safe to call fetch methods here
+    ```
+
+    `setup()` accepts `latitude` and `longitude` as `float` values. It stores them internally and immediately fires the `/points` lookup.
+  </Tab>
+  <Tab title="IP Geolocation">
+    Use `Nws.setup_ip()` when you want the plugin to figure out the player's location automatically using their public IP address. This is the fastest path to getting started, but accuracy is limited to the city level.
+
+    ```gdscript
+    func _ready() -> void:
+        Nws.location_setup_complete.connect(_on_location_ready)
+        Nws.setup_ip()
+
+    func _on_location_ready() -> void:
+        print("Detected location — lat:", Nws.lat, " lon:", Nws.lon)
+        # Safe to call fetch methods here
+    ```
+
+    `setup_ip()` calls `http://ip-api.com/json`, reads the returned `lat` and `lon`, and then performs the same `/points` lookup as `setup()`.
+  </Tab>
+</Tabs>
+
+## The `location_setup_complete` Signal
+
+Setup is **asynchronous**. After calling either setup method, GodotNWS makes at least two HTTP requests before it is ready. The `location_setup_complete` signal fires only after both the `/points` data and the nearest observation station list have been fetched.
+
+**Always connect to `location_setup_complete` before calling `setup()` or `setup_ip()`.** If you connect after the call, you risk missing the emission entirely.
+
+```gdscript
+func _ready() -> void:
+    # Connect first, then call setup
+    Nws.location_setup_complete.connect(_on_location_ready)
+    Nws.setup(34.0522, -118.2437)  # Los Angeles, CA
+
+func _on_location_ready() -> void:
+    print("GodotNWS is ready!")
+    Nws.fetch_forecast(false)
+```
+
+## The `Nws.SetUp` Property
+
+`Nws.SetUp` is a `bool` that starts as `false` and flips to `true` the moment `location_setup_complete` is emitted. Every fetch method calls `Check()` internally, which contains:
+
+```gdscript
+func Check():
+    assert(SetUp == true, "NWS: No coordinates set! Set up the location using setup_ip() or setup()!")
+```
+
+If you call a fetch method before setup completes, Godot will throw an assertion error and halt execution. Always gate your fetch calls behind the signal or a check of `Nws.SetUp`.
+
+```gdscript
+func fetch_weather_if_ready() -> void:
+    if not Nws.SetUp:
+        push_warning("NWS not ready yet!")
+        return
+    Nws.fetch_current_observations(false)
+```
+
+<Warning>
+  The NWS API only covers **United States locations**. Coordinates outside the US will cause the `/points` request to fail, and `location_setup_complete` will never emit. If your game targets a global audience, add logic to validate that the player's location falls within the US before calling setup.
+</Warning>
+
+## Changing Location During Gameplay
+
+If your game allows players to switch between cities or regions, call `setup()` again with the new coordinates. The singleton's internal URLs will be overwritten and `location_setup_complete` will fire again once the new grid is resolved.
+
+```gdscript
+func switch_city(new_lat: float, new_lon: float) -> void:
+    # Reconnect signal so _on_location_ready fires for the new location
+    if not Nws.location_setup_complete.is_connected(_on_location_ready):
+        Nws.location_setup_complete.connect(_on_location_ready)
+    Nws.setup(new_lat, new_lon)
+```
+
+<Tip>
+  If your signal handler disconnects itself after running (a one-shot pattern), remember to reconnect it before calling `setup()` again. Otherwise the new `location_setup_complete` emission will have no listener.
+</Tip>

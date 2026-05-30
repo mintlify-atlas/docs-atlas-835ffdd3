@@ -1,0 +1,203 @@
+---
+title: "Nws Forecast Methods and Signals"
+sidebarTitle: "Forecast"
+description: "Reference for fetch_forecast() and fetch_hourly_forecast() on the Nws singleton, with their parameters, signals, and returned ForecastPeriod data."
+---
+
+The `Nws` singleton provides two forecast methods: a daily forecast that groups weather into named periods (such as "Tonight" or "Tuesday") and an hourly forecast that covers each hour individually. Both methods are asynchronous and return their data through a signal. Require `location_setup_complete` to have fired before calling either method.
+
+## Daily Forecast
+
+### `fetch_forecast(fetch_images: bool)`
+
+Fetches the daily forecast for the configured location and emits `forecast_fetched` with an array of `ForecastPeriod` resources. The NWS daily forecast typically covers seven days, broken into day and night periods.
+
+<ParamField path="fetch_images" type="bool" required>
+  When `true`, the icon image for each forecast period is downloaded and stored in `ForecastPeriod.icon` as an `ImageTexture`. The signal fires only after all icon images have loaded. When `false`, `ForecastPeriod.icon` is `null` but `ForecastPeriod.iconUrl` is still populated, allowing you to load images later on demand.
+</ParamField>
+
+### Signal: `forecast_fetched(periods: Array[ForecastPeriod])`
+
+Emitted when the daily forecast data — and all icon images, if requested — is ready.
+
+<ResponseField name="periods" type="Array[ForecastPeriod]">
+  An array of `ForecastPeriod` resources, one per forecast period. Each resource exposes the following fields:
+
+  <Expandable title="ForecastPeriod fields">
+    <ResponseField name="number" type="int">
+      Sequential period number returned by the NWS API. Sort by this field if order matters, since asynchronous image loading may change array order when `fetch_images` is `true`.
+    </ResponseField>
+    <ResponseField name="name" type="String">
+      Human-readable period label, such as `"Tonight"`, `"Wednesday"`, or `"Wednesday Night"`.
+    </ResponseField>
+    <ResponseField name="startTime" type="Dictionary">
+      Period start time as a dictionary from `Time.get_datetime_dict_from_datetime_string()`, with UTC offset applied.
+    </ResponseField>
+    <ResponseField name="endTime" type="Dictionary">
+      Period end time in the same dictionary format as `startTime`.
+    </ResponseField>
+    <ResponseField name="isDay" type="bool">
+      `true` if this period falls during daytime hours.
+    </ResponseField>
+    <ResponseField name="temperature" type="float">
+      Forecast temperature for the period.
+    </ResponseField>
+    <ResponseField name="temperatureUnit" type="String">
+      Unit for `temperature`, either `"F"` (Fahrenheit) or `"C"` (Celsius).
+    </ResponseField>
+    <ResponseField name="precipitationChance" type="float">
+      Probability of precipitation as a percentage (0–100), or `null` if not reported.
+    </ResponseField>
+    <ResponseField name="windSpeed" type="float">
+      Wind speed for the period.
+    </ResponseField>
+    <ResponseField name="windDirection" type="float">
+      Wind direction in degrees.
+    </ResponseField>
+    <ResponseField name="shortForecast" type="String">
+      Brief forecast summary, such as `"Mostly Cloudy"`.
+    </ResponseField>
+    <ResponseField name="detailedForecast" type="String">
+      Full NWS forecast text for the period.
+    </ResponseField>
+    <ResponseField name="icon" type="ImageTexture">
+      The NWS condition icon as an `ImageTexture`, or `null` if `fetch_images` was `false`.
+    </ResponseField>
+    <ResponseField name="iconUrl" type="String">
+      Direct URL to the NWS condition icon PNG. Always populated regardless of `fetch_images`.
+    </ResponseField>
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API response for this period.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  When `fetch_images` is `true`, icon downloads are asynchronous. The signal fires after all icons are loaded, but the `periods` array may not be in chronological order. Sort by `ForecastPeriod.number` to restore the correct sequence.
+</Note>
+
+### Code Example
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_ready)
+    Nws.setup(39.7456, -97.0892)
+
+func _on_ready() -> void:
+    Nws.forecast_fetched.connect(_on_forecast)
+    Nws.fetch_forecast(true)
+
+func _on_forecast(periods: Array[ForecastPeriod]) -> void:
+    # Sort by period number to ensure chronological order
+    periods.sort_custom(func(a, b): return a.number < b.number)
+    for period in periods:
+        print("%s: %d°%s — %s" % [
+            period.name,
+            period.temperature,
+            period.temperatureUnit,
+            period.shortForecast
+        ])
+```
+
+---
+
+## Hourly Forecast
+
+### `fetch_hourly_forecast(fetch_images: bool)`
+
+Fetches the hourly forecast for the configured location and emits `hourly_forecast_fetched` with an array of `HourlyForecastPeriod` resources. The NWS hourly forecast typically covers the next 156 hours (six and a half days).
+
+<ParamField path="fetch_images" type="bool" required>
+  When `true`, the icon image for each hourly period is downloaded and stored in `HourlyForecastPeriod.icon`. The signal fires only after all icons have loaded. When `false`, `HourlyForecastPeriod.icon` is `null` but `iconUrl` is still set.
+</ParamField>
+
+### Signal: `hourly_forecast_fetched(periods: Array[HourlyForecastPeriod])`
+
+Emitted when the hourly forecast data — and all icon images, if requested — is ready.
+
+<ResponseField name="periods" type="Array[HourlyForecastPeriod]">
+  An array of `HourlyForecastPeriod` resources, one per hour. Each resource exposes the following fields:
+
+  <Expandable title="HourlyForecastPeriod fields">
+    <ResponseField name="number" type="int">
+      Sequential period number. Sort by this field when `fetch_images` is `true` to restore chronological order.
+    </ResponseField>
+    <ResponseField name="startTime" type="Dictionary">
+      Hour start time as a datetime dictionary with UTC offset applied.
+    </ResponseField>
+    <ResponseField name="endTime" type="Dictionary">
+      Hour end time in the same dictionary format.
+    </ResponseField>
+    <ResponseField name="isDay" type="bool">
+      `true` if the hour falls during daytime.
+    </ResponseField>
+    <ResponseField name="temperature" type="float">
+      Forecast temperature for the hour.
+    </ResponseField>
+    <ResponseField name="temperatureUnit" type="String">
+      Unit for `temperature`, either `"F"` or `"C"`.
+    </ResponseField>
+    <ResponseField name="precipitationChance" type="float">
+      Probability of precipitation as a percentage (0–100).
+    </ResponseField>
+    <ResponseField name="dewpoint" type="float">
+      Dewpoint temperature in degrees Celsius.
+    </ResponseField>
+    <ResponseField name="relativeHumidity" type="float">
+      Relative humidity as a percentage (0–100).
+    </ResponseField>
+    <ResponseField name="windSpeed" type="float">
+      Wind speed for the hour.
+    </ResponseField>
+    <ResponseField name="windDirection" type="float">
+      Wind direction in degrees.
+    </ResponseField>
+    <ResponseField name="shortForecast" type="String">
+      Brief condition summary for the hour.
+    </ResponseField>
+    <ResponseField name="detailedForecast" type="String">
+      Full forecast text for the hour.
+    </ResponseField>
+    <ResponseField name="icon" type="ImageTexture">
+      Condition icon as an `ImageTexture`, or `null` if `fetch_images` was `false`.
+    </ResponseField>
+    <ResponseField name="iconUrl" type="String">
+      Direct URL to the condition icon PNG.
+    </ResponseField>
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API for this period.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+  When `fetch_images` is `true`, sort results by `HourlyForecastPeriod.number` after receiving the signal, as concurrent image downloads may reorder the array.
+</Note>
+
+### Code Example
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_ready)
+    Nws.setup(39.7456, -97.0892)
+
+func _on_ready() -> void:
+    Nws.hourly_forecast_fetched.connect(_on_hourly)
+    # Skip icon downloads for a fast, lightweight fetch
+    Nws.fetch_hourly_forecast(false)
+
+func _on_hourly(periods: Array[HourlyForecastPeriod]) -> void:
+    # periods are in order when fetch_images is false
+    for period in periods.slice(0, 24):
+        print("Hour %d: %d°%s, %d%% precip, humidity %d%%" % [
+            period.number,
+            period.temperature,
+            period.temperatureUnit,
+            period.precipitationChance,
+            period.relativeHumidity
+        ])
+```

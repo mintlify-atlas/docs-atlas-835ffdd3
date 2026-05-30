@@ -1,0 +1,264 @@
+---
+title: "Nws Radar, Chart, and Imagery Methods"
+sidebarTitle: "Radar & Imagery"
+description: "Reference for GodotNWS imagery methods: radar GIFs, forecast charts, graphicasts, weather stories, radio broadcast text, and national warning and drought maps."
+---
+
+The `Nws` singleton provides seven imagery and broadcast methods that return visual weather products and text data from NWS sources. Some methods return raw `PackedByteArray` GIF data (requiring a GIF-rendering addon to display), while others decode PNG images directly into `ImageTexture` resources ready to use in Godot. All methods require `location_setup_complete` to have fired before calling.
+
+---
+
+## Radar
+
+### `fetch_radar_gif(velocity: bool)`
+
+Fetches an animated radar GIF for the radar station nearest to the configured location from `radar.weather.gov`. The result is a raw byte buffer, not a decoded texture.
+
+<ParamField path="velocity" type="bool" required>
+  When `false`, fetches the base reflectivity loop, which shows precipitation intensity. When `true`, fetches the base velocity loop, which shows wind motion toward or away from the radar.
+</ParamField>
+
+### Signal: `radar_fetched(image_buffer)`
+
+<ResponseField name="image_buffer" type="PackedByteArray">
+  The raw bytes of the animated radar GIF. Pass this to a GIF-rendering addon to display the animation. It cannot be loaded directly into Godot's built-in `Image` or `ImageTexture` classes.
+</ResponseField>
+
+<Note>
+  Godot 4 does not support GIF decoding natively. To render the radar animation in your project, use a GIF-rendering addon from the Godot Asset Library.
+</Note>
+
+### Code Example
+
+```gdscript
+extends Node
+
+func _ready() -> void:
+    Nws.location_setup_complete.connect(_on_ready)
+    Nws.setup(39.7456, -97.0892)
+
+func _on_ready() -> void:
+    Nws.radar_fetched.connect(_on_radar)
+    # Fetch base reflectivity radar
+    Nws.fetch_radar_gif(false)
+
+func _on_radar(image_buffer: PackedByteArray) -> void:
+    # Pass raw GIF bytes to your GIF addon
+    $RadarPlayer.load_gif(image_buffer)
+```
+
+---
+
+## Forecast Chart
+
+### `fetch_forecast_chart(index: int)`
+
+Fetches one of the Weather Prediction Center (WPC) forecast surface analysis charts as an animated GIF. Three chart periods are available.
+
+<ParamField path="index" type="int" required>
+  Chart period selector. Valid values are `1`, `2`, or `3`, corresponding to the three WPC NOAA forecast chart timeframes available at `wpc.ncep.noaa.gov`.
+</ParamField>
+
+### Signal: `chart_fetched(image_buffer)`
+
+<ResponseField name="image_buffer" type="PackedByteArray">
+  The raw bytes of the forecast chart GIF. As with radar data, pass this to a GIF-rendering addon rather than attempting to load it as a PNG or JPEG.
+</ResponseField>
+
+<Note>
+  Like `fetch_radar_gif`, the result is a raw GIF byte buffer and requires a GIF-rendering addon to display.
+</Note>
+
+### Code Example
+
+```gdscript
+func _on_ready() -> void:
+    Nws.chart_fetched.connect(_on_chart)
+    # Fetch the first WPC forecast chart
+    Nws.fetch_forecast_chart(1)
+
+func _on_chart(image_buffer: PackedByteArray) -> void:
+    $ChartPlayer.load_gif(image_buffer)
+```
+
+---
+
+## Graphicast
+
+### `fetch_graphicast(index: int)`
+
+Fetches a local NWS office graphicast image — a graphical weather summary produced by the local forecast office — and returns it as a decoded `ImageTexture`. The signal also returns the requested index and the HTTP `Last-Modified` header so you can detect updates.
+
+<ParamField path="index" type="int" required>
+  The zero-based index of the graphicast image to fetch. The number of available images varies by NWS office. Start with `0` and increment until requests begin failing.
+</ParamField>
+
+### Signal: `graphicast_fetched(image, index, last_modified)`
+
+<ResponseField name="image" type="ImageTexture">
+  The graphicast PNG decoded into a ready-to-use `ImageTexture`.
+</ResponseField>
+
+<ResponseField name="index" type="int">
+  The index value that was passed to `fetch_graphicast()`. Useful when dispatching multiple concurrent requests to match each response to its original call.
+</ResponseField>
+
+<ResponseField name="last_modified" type="String">
+  The value of the HTTP `Last-Modified` response header, with the `"Last-Modified: "` prefix stripped. Use this to detect when images have been updated since your last fetch.
+</ResponseField>
+
+<Note>
+  Graphicast images are produced by the local NWS forecast office (`_office`) and reflect regional weather summaries. Index `0` is the most current image. Not all offices produce the same number of graphicasts.
+</Note>
+
+### Code Example
+
+```gdscript
+func _on_ready() -> void:
+    Nws.graphicast_fetched.connect(_on_graphicast)
+    # Fetch the first graphicast image
+    Nws.fetch_graphicast(0)
+
+func _on_graphicast(image: ImageTexture, index: int, last_modified: String) -> void:
+    print("Graphicast %d last updated: %s" % [index, last_modified])
+    $GraphicastDisplay.texture = image
+```
+
+---
+
+## Weather Stories
+
+### `fetch_weather_stories()`
+
+Fetches active weather stories from the local NWS forecast office. Weather stories are narrative summaries paired with illustrative images, used by NWS offices to highlight significant weather events. Takes no parameters.
+
+### Signal: `weather_stories_fetched(stories: Array[WeatherStory])`
+
+<ResponseField name="stories" type="Array[WeatherStory]">
+  An array of `WeatherStory` resources. Each story includes its image, metadata, and display priority. Fields on each resource:
+
+  <Expandable title="WeatherStory fields">
+    <ResponseField name="title" type="String">
+      Short headline title for the weather story.
+    </ResponseField>
+    <ResponseField name="description" type="String">
+      Narrative body text of the story.
+    </ResponseField>
+    <ResponseField name="altText" type="String">
+      Alternative text description for the story image, if provided by the office.
+    </ResponseField>
+    <ResponseField name="image" type="ImageTexture">
+      The story illustration decoded as an `ImageTexture`. Images are fetched asynchronously; the signal fires only after all story images are loaded.
+    </ResponseField>
+    <ResponseField name="downloadUrl" type="String">
+      Direct URL to the story image used to populate `image`.
+    </ResponseField>
+    <ResponseField name="priority" type="bool">
+      `true` if the office has marked this story as high-priority.
+    </ResponseField>
+    <ResponseField name="order" type="int">
+      Display order index as specified by the issuing office.
+    </ResponseField>
+    <ResponseField name="startTime" type="Dictionary">
+      Story validity start time as a datetime dictionary.
+    </ResponseField>
+    <ResponseField name="endTime" type="Dictionary">
+      Story validity end time as a datetime dictionary.
+    </ResponseField>
+    <ResponseField name="UpdateTime" type="Dictionary">
+      Time the story was last updated, as a datetime dictionary.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Code Example
+
+```gdscript
+func _on_ready() -> void:
+    Nws.weather_stories_fetched.connect(_on_stories)
+    Nws.fetch_weather_stories()
+
+func _on_stories(stories: Array[WeatherStory]) -> void:
+    for story in stories:
+        print("[%d] %s" % [story.order, story.title])
+        $StoryImage.texture = story.image
+        $StoryLabel.text = story.description
+        break  # Display only the first story
+```
+
+---
+
+## Radio Broadcast
+
+### `fetch_radio_broadcast()`
+
+Fetches the NWS radio broadcast text for the configured location, parses the XML into individual forecast paragraphs, and emits them as an array of strings. Takes no parameters.
+
+### Signal: `radio_broadcast_fetched(Paragraphs: Array[String])`
+
+<ResponseField name="Paragraphs" type="Array[String]">
+  An array of strings, one per forecast paragraph. Each string represents a discrete forecast segment as it would be read on NWS Weather Radio, beginning with a period label such as `"Tonight:"` or `"Wednesday:"`.
+</ResponseField>
+
+### Code Example
+
+```gdscript
+func _on_ready() -> void:
+    Nws.radio_broadcast_fetched.connect(_on_broadcast)
+    Nws.fetch_radio_broadcast()
+
+func _on_broadcast(paragraphs: Array[String]) -> void:
+    for paragraph in paragraphs:
+        print(paragraph)
+        print("---")
+```
+
+---
+
+## US Warning Map
+
+### `fetch_us_warning_map()`
+
+Fetches the national active warning map from `weather.gov` as a PNG and decodes it into an `ImageTexture`. The map shows all currently active watches, warnings, and advisories across the contiguous United States. Takes no parameters.
+
+### Signal: `us_map_fetched(image)`
+
+<ResponseField name="image" type="ImageTexture">
+  The national warning map decoded as a ready-to-use `ImageTexture`.
+</ResponseField>
+
+### Code Example
+
+```gdscript
+func _on_ready() -> void:
+    Nws.us_map_fetched.connect(_on_us_map)
+    Nws.fetch_us_warning_map()
+
+func _on_us_map(image: ImageTexture) -> void:
+    $USWarningMap.texture = image
+```
+
+---
+
+## Drought Monitor
+
+### `fetch_drought_monitor()`
+
+Fetches the current US Drought Monitor map from `droughtmonitor.unl.edu` as a PNG and decodes it into an `ImageTexture`. Takes no parameters.
+
+### Signal: `drought_fetched(image)`
+
+<ResponseField name="image" type="ImageTexture">
+  The current drought monitor map decoded as a ready-to-use `ImageTexture`.
+</ResponseField>
+
+### Code Example
+
+```gdscript
+func _on_ready() -> void:
+    Nws.drought_fetched.connect(_on_drought)
+    Nws.fetch_drought_monitor()
+
+func _on_drought(image: ImageTexture) -> void:
+    $DroughtMap.texture = image
+```
