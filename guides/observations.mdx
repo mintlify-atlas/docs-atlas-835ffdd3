@@ -1,5 +1,5 @@
 ---
-title: "Fetching Current Weather Observations"
+title: "Fetching Current Weather Observations with GodotNWS"
 sidebarTitle: "Observations"
 description: "Retrieve live weather station observations with GodotNWS, including temperature, wind, pressure, humidity, precipitation, and more."
 ---
@@ -36,9 +36,9 @@ func _on_observations(obs: ObservationPacket) -> void:
 
     # Wind — check before printing, may be null/zero
     if obs.windSpeed != 0.0:
-        print("Wind: %.1f km/h from %d°" % [obs.windSpeed, obs.windDirection])
+        print("Wind: %.1f m/s from %d°" % [obs.windSpeed, obs.windDirection])
     if obs.windGust != 0.0:
-        print("Gusts to: %.1f km/h" % obs.windGust)
+        print("Gusts to: %.1f m/s" % obs.windGust)
 
     # Humidity and dewpoint
     if obs.relativeHumidity != 0.0:
@@ -122,8 +122,8 @@ if obs.rawMessage != "":
 | `temperature` | `float` | Air temperature in **°C**. |
 | `dewpoint` | `float` | Dewpoint in **°C**. May be `0.0` if unreported. |
 | `windDirection` | `float` | Wind direction in degrees. May be `0.0` if calm or unreported. |
-| `windSpeed` | `float` | Wind speed in km/h. May be `0.0` if calm or unreported. |
-| `windGust` | `float` | Wind gust speed in km/h. May be `0.0` if no gusts. |
+| `windSpeed` | `float` | Wind speed in **m/s**. May be `0.0` if calm or unreported. |
+| `windGust` | `float` | Wind gust speed in **m/s**. May be `0.0` if no gusts. |
 | `barometricPressure` | `float` | Station pressure in Pascals. May be `0.0` if unreported. |
 | `seaLevelPressure` | `float` | Sea-level pressure in Pascals. May be `0.0` if unreported. |
 | `visibility` | `float` | Visibility in meters. May be `0.0` if unreported. |

@@ -1,7 +1,7 @@
 ---
-title: "Nws.setup() and Location Initialization"
+title: "GodotNWS Setup: Location Initialization and Signals"
 sidebarTitle: "Setup"
-description: "Reference for the Nws singleton setup methods and location_setup_complete signal. Required before calling any GodotNWS fetch methods."
+description: "Reference for the Nws singleton setup methods, location_setup_complete signal, and the public properties populated after initialization."
 ---
 
 Before you can call any fetch method on the `Nws` singleton, you must initialize it with a geographic location. Both setup methods configure the singleton's internal state — latitude, longitude, NWS grid coordinates, forecast URLs, and observation station — and then emit `location_setup_complete` once that initialization is finished. All subsequent fetch calls depend on this state, so you must wait for the signal before invoking any of them.
@@ -46,7 +46,7 @@ This signal carries no parameters.
 
 ### `SetUp: bool`
 
-A read-only indicator that becomes `true` once `location_setup_complete` has fired. All fetch methods call `Check()` internally, which asserts that `SetUp == true`. You should not read or write this property directly; use the signal to know when initialization is complete.
+A readable indicator that becomes `true` once `location_setup_complete` has fired. All fetch methods assert internally that `SetUp == true` before proceeding. You should not write this property directly; use the signal to know when initialization is complete.
 
 ---
 

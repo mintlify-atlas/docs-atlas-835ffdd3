@@ -1,5 +1,5 @@
 ---
-title: "Nws.fetch_current_observations() Reference"
+title: "GodotNWS Observations: fetch_current_observations() API"
 sidebarTitle: "Observations"
 description: "Reference for fetch_current_observations() on the Nws singleton: fetch_icon parameter, the observations_fetched signal, and ObservationPacket fields."
 ---
@@ -32,6 +32,9 @@ Emitted when the observation data — and the condition icon, if requested — i
   An `ObservationPacket` resource containing current conditions, or `null` if observations are unavailable. The packet exposes the following fields:
 
   <Expandable title="ObservationPacket fields">
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API observation response.
+    </ResponseField>
     <ResponseField name="station" type="String">
       The URL identifier of the reporting observation station.
     </ResponseField>
@@ -106,9 +109,6 @@ Emitted when the observation data — and the condition icon, if requested — i
     </ResponseField>
     <ResponseField name="baseCloudHeight" type="float">
       Height of the lowest cloud layer base in **meters**, if reported.
-    </ResponseField>
-    <ResponseField name="raw" type="Dictionary">
-      The complete raw JSON properties dictionary from the NWS API observation response.
     </ResponseField>
   </Expandable>
 </ResponseField>

@@ -1,7 +1,7 @@
 ---
-title: "ObservationPacket: Current Conditions Data Class"
+title: "ObservationPacket: NWS Current Conditions Data Class"
 sidebarTitle: "ObservationPacket"
-description: "ObservationPacket holds current weather station observations — temperature, wind, pressure, humidity, and more — delivered via the observations_fetched signal."
+description: "ObservationPacket holds current NWS station observations — temperature, wind, pressure, and humidity — delivered via the observations_fetched signal."
 ---
 
 `ObservationPacket` is a typed `Resource` containing the latest surface observations from the NWS station nearest to the configured location. It is emitted as a single object (not an array) by the `observations_fetched` signal after calling `Nws.fetch_current_observations()`. Unlike forecast data, observations reflect what the station actually recorded at the time of the most recent report.

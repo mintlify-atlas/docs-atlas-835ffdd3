@@ -1,7 +1,7 @@
 ---
-title: "Nws Radar, Chart, and Imagery Methods"
+title: "GodotNWS Imagery: Radar, Charts, and Weather Stories"
 sidebarTitle: "Radar & Imagery"
-description: "Reference for GodotNWS imagery methods: radar GIFs, forecast charts, graphicasts, weather stories, radio broadcast text, and national warning and drought maps."
+description: "Reference for GodotNWS imagery methods: radar GIFs, forecast charts, graphicasts, weather stories, radio broadcasts, and national maps."
 ---
 
 The `Nws` singleton provides seven imagery and broadcast methods that return visual weather products and text data from NWS sources. Some methods return raw `PackedByteArray` GIF data (requiring a GIF-rendering addon to display), while others decode PNG images directly into `ImageTexture` resources ready to use in Godot. All methods require `location_setup_complete` to have fired before calling.
@@ -90,7 +90,7 @@ func _on_chart(image_buffer: PackedByteArray) -> void:
 Fetches a local NWS office graphicast image — a graphical weather summary produced by the local forecast office — and returns it as a decoded `ImageTexture`. The signal also returns the requested index and the HTTP `Last-Modified` header so you can detect updates.
 
 <ParamField path="index" type="int" required>
-  The zero-based index of the graphicast image to fetch. The number of available images varies by NWS office. Start with `0` and increment until requests begin failing.
+  The integer index of the graphicast image to fetch. The number of available images varies by NWS office; increment the index until requests begin failing.
 </ParamField>
 
 ### Signal: `graphicast_fetched(image, index, last_modified)`
@@ -108,7 +108,7 @@ Fetches a local NWS office graphicast image — a graphical weather summary prod
 </ResponseField>
 
 <Note>
-  Graphicast images are produced by the local NWS forecast office (`_office`) and reflect regional weather summaries. Index `0` is the most current image. Not all offices produce the same number of graphicasts.
+  Graphicast images are produced by the local NWS forecast office and reflect regional weather summaries. Not all offices produce the same number of graphicasts.
 </Note>
 
 ### Code Example
@@ -138,6 +138,15 @@ Fetches active weather stories from the local NWS forecast office. Weather stori
   An array of `WeatherStory` resources. Each story includes its image, metadata, and display priority. Fields on each resource:
 
   <Expandable title="WeatherStory fields">
+    <ResponseField name="startTime" type="Dictionary">
+      Story validity start time as a datetime dictionary.
+    </ResponseField>
+    <ResponseField name="endTime" type="Dictionary">
+      Story validity end time as a datetime dictionary.
+    </ResponseField>
+    <ResponseField name="UpdateTime" type="Dictionary">
+      Time the story was last updated, as a datetime dictionary.
+    </ResponseField>
     <ResponseField name="title" type="String">
       Short headline title for the weather story.
     </ResponseField>
@@ -147,26 +156,17 @@ Fetches active weather stories from the local NWS forecast office. Weather stori
     <ResponseField name="altText" type="String">
       Alternative text description for the story image, if provided by the office.
     </ResponseField>
-    <ResponseField name="image" type="ImageTexture">
-      The story illustration decoded as an `ImageTexture`. Images are fetched asynchronously; the signal fires only after all story images are loaded.
-    </ResponseField>
-    <ResponseField name="downloadUrl" type="String">
-      Direct URL to the story image used to populate `image`.
-    </ResponseField>
     <ResponseField name="priority" type="bool">
       `true` if the office has marked this story as high-priority.
     </ResponseField>
     <ResponseField name="order" type="int">
       Display order index as specified by the issuing office.
     </ResponseField>
-    <ResponseField name="startTime" type="Dictionary">
-      Story validity start time as a datetime dictionary.
+    <ResponseField name="downloadUrl" type="String">
+      Direct URL to the story image used to populate `image`.
     </ResponseField>
-    <ResponseField name="endTime" type="Dictionary">
-      Story validity end time as a datetime dictionary.
-    </ResponseField>
-    <ResponseField name="UpdateTime" type="Dictionary">
-      Time the story was last updated, as a datetime dictionary.
+    <ResponseField name="image" type="ImageTexture">
+      The story illustration decoded as an `ImageTexture`. Images are fetched asynchronously; the signal fires only after all story images are loaded.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -207,8 +207,8 @@ func _on_ready() -> void:
     Nws.radio_broadcast_fetched.connect(_on_broadcast)
     Nws.fetch_radio_broadcast()
 
-func _on_broadcast(paragraphs: Array[String]) -> void:
-    for paragraph in paragraphs:
+func _on_broadcast(Paragraphs: Array[String]) -> void:
+    for paragraph in Paragraphs:
         print(paragraph)
         print("---")
 ```

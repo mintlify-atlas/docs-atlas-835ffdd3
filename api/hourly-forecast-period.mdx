@@ -1,7 +1,7 @@
 ---
-title: "HourlyForecastPeriod: Hourly Forecast Data Class"
+title: "HourlyForecastPeriod: NWS Hourly Forecast Data Class"
 sidebarTitle: "HourlyForecastPeriod"
-description: "HourlyForecastPeriod holds one hour of forecast data including dewpoint and relative humidity, delivered via hourly_forecast_fetched from the Nws singleton."
+description: "HourlyForecastPeriod holds one hour of NWS forecast data — dewpoint, humidity, temperature, and more — delivered via hourly_forecast_fetched."
 ---
 
 `HourlyForecastPeriod` is a typed `Resource` representing a single one-hour slot in the NWS hourly forecast. An array of these resources is emitted by the `hourly_forecast_fetched` signal after calling `Nws.fetch_hourly_forecast()`. Compared to `ForecastPeriod`, hourly periods do not have a named label but add `dewpoint` and `relativeHumidity` fields that are not present in the daily forecast. The NWS typically returns up to 156 hourly periods (about 6.5 days ahead).

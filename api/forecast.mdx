@@ -1,10 +1,10 @@
 ---
-title: "Nws Forecast Methods and Signals"
+title: "Nws Forecast: fetch_forecast() and Hourly Forecast API"
 sidebarTitle: "Forecast"
 description: "Reference for fetch_forecast() and fetch_hourly_forecast() on the Nws singleton, with their parameters, signals, and returned ForecastPeriod data."
 ---
 
-The `Nws` singleton provides two forecast methods: a daily forecast that groups weather into named periods (such as "Tonight" or "Tuesday") and an hourly forecast that covers each hour individually. Both methods are asynchronous and return their data through a signal. Require `location_setup_complete` to have fired before calling either method.
+The `Nws` singleton provides two forecast methods: a daily forecast that groups weather into named periods (such as "Tonight" or "Tuesday") and an hourly forecast that covers each hour individually. Both methods are asynchronous and return their data through a signal. `location_setup_complete` must have fired before calling either method.
 
 ## Daily Forecast
 
@@ -24,6 +24,9 @@ Emitted when the daily forecast data — and all icon images, if requested — i
   An array of `ForecastPeriod` resources, one per forecast period. Each resource exposes the following fields:
 
   <Expandable title="ForecastPeriod fields">
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API response for this period.
+    </ResponseField>
     <ResponseField name="number" type="int">
       Sequential period number returned by the NWS API. Sort by this field if order matters, since asynchronous image loading may change array order when `fetch_images` is `true`.
     </ResponseField>
@@ -54,20 +57,17 @@ Emitted when the daily forecast data — and all icon images, if requested — i
     <ResponseField name="windDirection" type="float">
       Wind direction in degrees.
     </ResponseField>
-    <ResponseField name="shortForecast" type="String">
-      Brief forecast summary, such as `"Mostly Cloudy"`.
-    </ResponseField>
-    <ResponseField name="detailedForecast" type="String">
-      Full NWS forecast text for the period.
-    </ResponseField>
     <ResponseField name="icon" type="ImageTexture">
       The NWS condition icon as an `ImageTexture`, or `null` if `fetch_images` was `false`.
     </ResponseField>
     <ResponseField name="iconUrl" type="String">
       Direct URL to the NWS condition icon PNG. Always populated regardless of `fetch_images`.
     </ResponseField>
-    <ResponseField name="raw" type="Dictionary">
-      The complete raw JSON properties dictionary from the NWS API response for this period.
+    <ResponseField name="shortForecast" type="String">
+      Brief forecast summary, such as `"Mostly Cloudy"`.
+    </ResponseField>
+    <ResponseField name="detailedForecast" type="String">
+      Full NWS forecast text for the period.
     </ResponseField>
   </Expandable>
 </ResponseField>
@@ -121,6 +121,9 @@ Emitted when the hourly forecast data — and all icon images, if requested — 
   An array of `HourlyForecastPeriod` resources, one per hour. Each resource exposes the following fields:
 
   <Expandable title="HourlyForecastPeriod fields">
+    <ResponseField name="raw" type="Dictionary">
+      The complete raw JSON properties dictionary from the NWS API for this period.
+    </ResponseField>
     <ResponseField name="number" type="int">
       Sequential period number. Sort by this field when `fetch_images` is `true` to restore chronological order.
     </ResponseField>
@@ -154,20 +157,17 @@ Emitted when the hourly forecast data — and all icon images, if requested — 
     <ResponseField name="windDirection" type="float">
       Wind direction in degrees.
     </ResponseField>
-    <ResponseField name="shortForecast" type="String">
-      Brief condition summary for the hour.
-    </ResponseField>
-    <ResponseField name="detailedForecast" type="String">
-      Full forecast text for the hour.
-    </ResponseField>
     <ResponseField name="icon" type="ImageTexture">
       Condition icon as an `ImageTexture`, or `null` if `fetch_images` was `false`.
     </ResponseField>
     <ResponseField name="iconUrl" type="String">
       Direct URL to the condition icon PNG.
     </ResponseField>
-    <ResponseField name="raw" type="Dictionary">
-      The complete raw JSON properties dictionary from the NWS API for this period.
+    <ResponseField name="shortForecast" type="String">
+      Brief condition summary for the hour.
+    </ResponseField>
+    <ResponseField name="detailedForecast" type="String">
+      Full forecast text for the hour.
     </ResponseField>
   </Expandable>
 </ResponseField>

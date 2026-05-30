@@ -1,7 +1,7 @@
 ---
-title: "GodotNWS: Real Weather Data in Godot 4"
+title: "GodotNWS: Live U.S. Weather Data for Godot 4.1+"
 sidebarTitle: "Introduction"
-description: "GodotNWS is a Godot 4 plugin that wraps the U.S. National Weather Service API, giving your game access to live forecasts, alerts, radar, and observations — no API key needed."
+description: "GodotNWS is a Godot 4.1+ plugin wrapping the U.S. National Weather Service API — live forecasts, alerts, radar, and observations. No API key required."
 ---
 
 GodotNWS is a GDScript plugin for Godot 4.1+ that connects your game directly to the U.S. National Weather Service (NWS) API. With a few function calls you can pull live weather forecasts, active alerts, radar imagery, and current station observations into any scene — all without registering for an API key. Whether you're building a simulation, adding dynamic weather events driven by real-world conditions, or just want to show players the actual forecast for their region, GodotNWS handles the HTTP requests and data parsing so you don't have to.
@@ -43,6 +43,43 @@ GodotNWS is a GDScript plugin for Godot 4.1+ that connects your game directly to
     Retrieve Weather Prediction Center forecast charts (indices 1–3) as GIF buffers for display or processing.
   </Card>
 </CardGroup>
+
+## Public API
+
+GodotNWS exposes thirteen public methods on the `Nws` singleton. The two setup methods must be called first — all fetch methods assert that a location has been configured before making any network requests.
+
+| Method | Description |
+|--------|-------------|
+| `setup(latitude, longitude)` | Configure location from explicit coordinates. |
+| `setup_ip()` | Auto-detect location from the user's IP address. |
+| `fetch_forecast(fetch_images)` | Fetch the multi-period daily forecast. |
+| `fetch_hourly_forecast(fetch_images)` | Fetch the hour-by-hour forecast. |
+| `fetch_current_observations(fetch_icon)` | Fetch the latest station observation readings. |
+| `fetch_alerts()` | Fetch active NWS alerts for the area. |
+| `fetch_radar_gif(velocity)` | Download the radar loop GIF (base reflectivity or velocity). |
+| `fetch_forecast_chart(index)` | Download a WPC forecast chart GIF (index 1–3). |
+| `fetch_graphicast(index)` | Fetch an indexed graphicast image from the local office. |
+| `fetch_weather_stories()` | Fetch illustrated weather stories from the forecast office. |
+| `fetch_radio_broadcast()` | Fetch the NWS radio broadcast text for the location. |
+| `fetch_us_warning_map()` | Download the national active-warnings map. |
+| `fetch_drought_monitor()` | Download the current U.S. Drought Monitor map. |
+
+Each fetch method emits a corresponding signal when the data is ready:
+
+| Signal | Payload |
+|--------|---------|
+| `location_setup_complete` | *(no arguments)* |
+| `forecast_fetched` | `periods: Array[ForecastPeriod]` |
+| `hourly_forecast_fetched` | `periods: Array[HourlyForecastPeriod]` |
+| `observations_fetched` | `observations: ObservationPacket` |
+| `alerts_fetched` | `alerts: Array[Alert]` |
+| `radar_fetched` | `image_buffer` |
+| `chart_fetched` | `image_buffer` |
+| `graphicast_fetched` | `image, index, last_modified` |
+| `weather_stories_fetched` | `stories: Array[WeatherStory]` |
+| `radio_broadcast_fetched` | `Paragraphs: Array[String]` |
+| `drought_fetched` | `image` |
+| `us_map_fetched` | `image` |
 
 ## How the Plugin Works
 

@@ -1,7 +1,7 @@
 ---
-title: "Install GodotNWS in Your Godot 4 Project"
+title: "How to Install GodotNWS in Your Godot 4.1+ Project"
 sidebarTitle: "Installation"
-description: "Step-by-step instructions for adding the GodotNWS plugin to your Godot 4.1+ project and enabling the Nws autoload singleton."
+description: "Step-by-step instructions for adding the GodotNWS plugin to your Godot 4.1+ project and enabling the Nws autoload singleton. No package manager required."
 ---
 
 Installing GodotNWS is a straightforward process that mirrors how any Godot 4 editor plugin is added to a project. You copy a folder, flip a toggle in Project Settings, and the global `Nws` singleton becomes available everywhere in your codebase. No package manager, no external dependencies, and no API key registration is required — the U.S. National Weather Service API is free and open.
@@ -31,8 +31,10 @@ Installing GodotNWS is a straightforward process that mirrors how any Godot 4 ed
             ├── NWS.gd
             ├── NwsSingleton.gd
             ├── forecastperiod.gd
+            ├── hourlyforecastperiod.gd
             ├── observations.gd
-            └── alert.gd
+            ├── alert.gd
+            └── weatherstory.gd
     ```
 
     Do not rename the folder — Godot locates the plugin by the path declared inside `plugin.cfg`.
@@ -72,6 +74,8 @@ When you enable GodotNWS, the editor plugin's `_enable_plugin()` method in `NWS.
 ```gdscript
 add_autoload_singleton("Nws", "res://addons/godotnws/NwsSingleton.gd")
 ```
+
+Note that the autoload path uses an all-lowercase `godotnws` directory name. The folder on disk is named `GodotNws` (capital G, lowercase nws), but the path registered in the autoload uses `godotnws` (all lowercase). Godot's filesystem is case-insensitive on Windows but case-sensitive on Linux and macOS — the plugin handles this internally, so no manual adjustment is needed as long as you have not renamed the folder.
 
 This is why `Nws` appears globally without any additional setup on your part. Godot adds it to the autoload list and instantiates it before any of your scenes load, making it available from the very first `_ready()` call in your project.
 

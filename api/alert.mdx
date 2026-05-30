@@ -1,7 +1,7 @@
 ---
-title: "Alert: NWS Weather Alert Data Class"
+title: "Alert: NWS Weather Alert Godot Data Class Reference"
 sidebarTitle: "Alert"
-description: "Alert is a Godot Resource containing full NWS weather alert data — severity, urgency, timeline, and message text — delivered via the alerts_fetched signal."
+description: "Alert holds full NWS weather alert data — severity, urgency, timeline, and message text — delivered via the alerts_fetched signal from GodotNWS."
 ---
 
 `Alert` is a typed `Resource` that holds all data for a single active NWS weather alert — such as a Tornado Warning, Flood Watch, or Winter Storm Advisory. An array of these resources is emitted by the `alerts_fetched` signal after calling `Nws.fetch_alerts()`. Alerts are scoped to the county zone of the configured location. The array may be empty if no alerts are active.
